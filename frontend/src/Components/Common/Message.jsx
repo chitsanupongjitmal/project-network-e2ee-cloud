@@ -324,6 +324,13 @@ const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, 
             );
         }
         
+        const isEncryptedText = typeof messageType === 'string' && messageType.startsWith('encrypted');
+        const hasDecryptedText = typeof msg.decryptedText === 'string' && msg.decryptedText.length > 0;
+
+        if (isEncryptedText && !msg.isTemp && !hasDecryptedText) {
+            return <p className="text-base break-words p-3 italic text-gray-500">Decrypting...</p>;
+        }
+
         const fallbackText = msg.decryptedText ?? msg.text ?? '';
         return <p className="text-base break-words p-3 whitespace-pre-wrap">{fallbackText}</p>;
     };
@@ -390,6 +397,4 @@ const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, 
 };
 
 export default Message;
-
-
 
