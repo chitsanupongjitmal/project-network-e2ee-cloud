@@ -91,7 +91,7 @@ server {
 3. Build command: `npm run build`
 4. Output directory: `dist`
 5. Add env var in Vercel:
-- `VITE_SERVER_URL=http://43.209.239.254`
+- `VITE_SERVER_URL=` (leave empty when using `frontend/vercel.json` rewrites)
 
 6. Redeploy.
 
