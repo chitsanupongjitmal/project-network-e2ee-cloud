@@ -180,6 +180,77 @@ router.get('/friends/requests', authenticateToken, async (req, res) => {
     }
 });
 
+router.post('/friends/request', authenticateToken, async (req, res) => {
+    try {
+        const senderId = req.user.id;
+        const { receiverId } = req.body;
+
+        if (!receiverId) return res.status(400).json({ message: 'receiverId is required.' });
+        if (Number(receiverId) === Number(senderId)) return res.status(400).json({ message: 'Cannot add yourself.' });
+
+        const userOneId = Math.min(senderId, Number(receiverId));
+        const userTwoId = Math.max(senderId, Number(receiverId));
+
+        await db.query(
+            `INSERT INTO friendships (user_one_id, user_two_id, status, action_user_id)
+             VALUES (?, ?, 'pending', ?)
+             ON DUPLICATE KEY UPDATE status = VALUES(status), action_user_id = VALUES(action_user_id)`,
+            [userOneId, userTwoId, senderId]
+        );
+
+        if (req.io) {
+            req.io.to(receiverId.toString()).emit('new friend request', {
+                sender: { id: senderId, username: req.user.username }
+            });
+            req.io.to(senderId.toString()).emit('friend request sent', { receiverId: Number(receiverId) });
+        }
+
+        res.status(200).json({ message: 'Friend request sent.' });
+    } catch (error) {
+        console.error('Send friend request error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+router.put('/friends/request/respond', authenticateToken, async (req, res) => {
+    try {
+        const receiverId = req.user.id;
+        const { senderId, status } = req.body;
+
+        if (!senderId || !['accepted', 'rejected'].includes(status)) {
+            return res.status(400).json({ message: 'senderId and valid status are required.' });
+        }
+
+        const userOneId = Math.min(Number(senderId), Number(receiverId));
+        const userTwoId = Math.max(Number(senderId), Number(receiverId));
+
+        const [result] = await db.query(
+            `UPDATE friendships
+             SET status = ?, action_user_id = ?
+             WHERE user_one_id = ? AND user_two_id = ? AND status = 'pending' AND action_user_id != ?`,
+            [status, receiverId, userOneId, userTwoId, receiverId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'No pending request found.' });
+        }
+
+        if (req.io) {
+            req.io.to(receiverId.toString()).emit('friend response success', { senderId: Number(senderId), status });
+            if (status === 'accepted') {
+                req.io.to(senderId.toString()).emit('friend request accepted', {
+                    responder: { id: receiverId, username: req.user.username }
+                });
+            }
+        }
+
+        res.status(200).json({ message: `Request ${status}.` });
+    } catch (error) {
+        console.error('Respond friend request error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 router.post('/friends/unfriend', authenticateToken, async (req, res) => {
     try {
         const { friendId } = req.body;

@@ -67,9 +67,25 @@ const FriendsPage = ({ socket, setHasNewFriendRequest }) => {
   
 
   const handleFriendRequestResponse = (senderId, status) => {
-      if (socket) {
-        socket.emit('respond to friend request', { senderId, status });
-      }
+      const respond = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${SERVER_URL}/api/friends/request/respond`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ senderId, status })
+          });
+          if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.message || 'Failed to respond to friend request');
+          }
+          if (socket) socket.emit('respond to friend request', { senderId, status });
+          fetchData();
+        } catch (error) {
+          console.error('Failed to respond to friend request', error);
+        }
+      };
+      respond();
   };
 
   const handleUnfriend = async (friendId) => {

@@ -50,8 +50,22 @@ const ProfilePage = ({ currentUser, socket }) => {
 
   const handleFriendAction = async (action, targetUserId) => {
     if (action === 'add') {
-        if (socket) {
-            socket.emit('send friend request', { receiverId: targetUserId });
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${SERVER_URL}/api/friends/request`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ receiverId: targetUserId })
+          });
+          if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.message || 'Failed to send friend request');
+          }
+          if (socket) socket.emit('send friend request', { receiverId: targetUserId });
+          fetchProfile();
+        } catch (error) {
+          console.error('Failed to send friend request', error);
+          setError(error.message || 'Failed to send friend request');
         }
         return;
     }
@@ -249,7 +263,6 @@ const ProfilePage = ({ currentUser, socket }) => {
 };
 
 export default ProfilePage;
-
 
 
 
