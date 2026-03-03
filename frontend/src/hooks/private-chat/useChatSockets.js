@@ -136,13 +136,15 @@ export const useChatSockets = (socket, currentUser, peerUser, peerUsername, setM
     useEffect(() => {
         if (!peerUser?.id) return;
 
-        // Fallback live sync for deployments where socket delivery can be unstable.
+        // Fallback live sync only when socket is unavailable/disconnected.
         const intervalId = setInterval(() => {
-            fetchData();
+            if (!socket || !socket.connected) {
+                fetchData();
+            }
         }, 2000);
 
         return () => clearInterval(intervalId);
-    }, [peerUser?.id, fetchData]);
+    }, [peerUser?.id, fetchData, socket]);
     
     return { isPeerTyping, isPeerOnline, isSessionOutOfSync, isUploading, setIsUploading };
 };
