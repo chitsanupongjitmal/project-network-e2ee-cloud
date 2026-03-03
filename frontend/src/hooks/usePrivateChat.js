@@ -34,8 +34,23 @@ export const usePrivateChat = (peerUsername, socket, currentUser, keyPair, peerK
 
     const decryptedMessages = useChatEncryption(messages, keyPair, peerPublicKey, peerUser);
 
+    const sendPrivateMessageViaApi = useCallback(async ({ encryptedPayload, toUserId, type, replyToMessageId }) => {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${SERVER_URL}/api/chat/private/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ encryptedPayload, toUserId, type, replyToMessageId }),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.message || 'Failed to send message.');
+        }
+        return payload;
+    }, []);
+
     const handleSendMessage = useCallback(async (text) => {
-        if (!text.trim() || !socket || !peerPublicKey || !keyPair?.privateKey || !peerUser) return;
+        if (!text.trim() || !peerPublicKey || !keyPair?.privateKey || !peerUser) return;
         try {
             const encryptedPayload = await encryptMessage(text, peerPublicKey, keyPair.privateKey);
             const client_id = `temp-${Date.now()}`;
@@ -49,19 +64,31 @@ export const usePrivateChat = (peerUsername, socket, currentUser, keyPair, peerK
             };
 
             setMessages(prev => [...prev, tempMessage]);
-            socket.emit('private message', {
-                encryptedPayload, toUserId: peerUser.id, client_id,
-                type: 'encrypted_text', replyToMessageId: replyingToMessage?.id
+            const savedMessage = await sendPrivateMessageViaApi({
+                encryptedPayload,
+                toUserId: peerUser.id,
+                type: 'encrypted_text',
+                replyToMessageId: replyingToMessage?.id || null
             });
+            setMessages(prev => prev.map(m => (
+                m.id === client_id
+                    ? { ...savedMessage, text: savedMessage.encryptedPayload, isTemp: false, repliedTo: m.repliedTo }
+                    : m
+            )));
+
+            if (socket) {
+                socket.emit('mark as read', { peerUsername });
+            }
             setReplyingToMessage(null);
         } catch (err) {
             console.error("Failed to send message:", err);
             alert("Could not send the message.");
+            setMessages(prev => prev.filter(m => m.id !== client_id));
         }
-    }, [socket, peerUser, peerPublicKey, keyPair, currentUser, replyingToMessage, setReplyingToMessage, setMessages]);
+    }, [peerPublicKey, keyPair, peerUser, currentUser, replyingToMessage, setReplyingToMessage, setMessages, sendPrivateMessageViaApi, socket, peerUsername]);
 
     const handleSendFile = useCallback(async (file, caption = '') => {
-        if (!socket || !peerPublicKey || !keyPair?.privateKey || !peerUser) {
+        if (!peerPublicKey || !keyPair?.privateKey || !peerUser) {
             alert("Cannot send file: connection or encryption keys are not ready.");
             return;
         }
@@ -98,12 +125,17 @@ export const usePrivateChat = (peerUsername, socket, currentUser, keyPair, peerK
 
             const payload = { url: uploadResult.url, fileName: file.name, mimeType: file.type, caption: caption };
             const encryptedPayload = await encryptMessage(JSON.stringify(payload), peerPublicKey, keyPair.privateKey);
-
-            socket.emit('private message', {
-                encryptedPayload, toUserId: peerUser.id, client_id,
+            const savedMessage = await sendPrivateMessageViaApi({
+                encryptedPayload,
+                toUserId: peerUser.id,
                 type: file.type.startsWith('image/') ? 'encrypted_image' : 'encrypted_file',
-                replyToMessageId: replyingToMessage?.id
+                replyToMessageId: replyingToMessage?.id || null
             });
+            setMessages(prev => prev.map(m => (
+                m.id === client_id
+                    ? { ...savedMessage, text: savedMessage.encryptedPayload, isTemp: false, repliedTo: m.repliedTo }
+                    : m
+            )));
 
         } catch (err) {
             console.error("Failed to send file:", err);
@@ -113,7 +145,7 @@ export const usePrivateChat = (peerUsername, socket, currentUser, keyPair, peerK
             setIsUploading(false);
             setReplyingToMessage(null);
         }
-    }, [socket, peerUser, peerPublicKey, keyPair, currentUser, replyingToMessage, setMessages, setIsUploading, setReplyingToMessage]);
+    }, [peerUser, peerPublicKey, keyPair, currentUser, replyingToMessage, setMessages, setIsUploading, setReplyingToMessage, sendPrivateMessageViaApi]);
 
     const handleUnsendMessage = useCallback((message) => {
         if (socket && peerUser) {

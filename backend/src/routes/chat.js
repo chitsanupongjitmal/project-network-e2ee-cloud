@@ -12,6 +12,64 @@ if (!fs.existsSync(encryptedUploadsDir)) {
     fs.mkdirSync(encryptedUploadsDir, { recursive: true });
 }
 
+router.post('/private/send', authenticateToken, async (req, res) => {
+    try {
+        const senderId = req.user.id;
+        const { encryptedPayload, toUserId, type = 'encrypted_text', replyToMessageId = null } = req.body;
+
+        if (!encryptedPayload || !toUserId) {
+            return res.status(400).json({ message: 'encryptedPayload and toUserId are required.' });
+        }
+        if (Number(senderId) === Number(toUserId)) {
+            return res.status(400).json({ message: 'Cannot send message to yourself.' });
+        }
+
+        const userOneId = Math.min(Number(senderId), Number(toUserId));
+        const userTwoId = Math.max(Number(senderId), Number(toUserId));
+        const [friendships] = await db.query(
+            'SELECT status FROM friendships WHERE user_one_id = ? AND user_two_id = ?',
+            [userOneId, userTwoId]
+        );
+
+        if (friendships.length === 0 || friendships[0].status !== 'accepted') {
+            return res.status(403).json({ message: 'You can only send messages to accepted friends.' });
+        }
+
+        const [receiverData] = await db.query('SELECT public_key_version FROM users WHERE id = ?', [toUserId]);
+        const receiverKeyVersion = receiverData.length > 0 ? receiverData[0].public_key_version : null;
+
+        const [result] = await db.query(
+            'INSERT INTO private_messages (sender_id, receiver_id, message_text, message_type, receiver_key_version, reply_to_message_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [senderId, toUserId, encryptedPayload, type, receiverKeyVersion, replyToMessageId]
+        );
+
+        const messageData = {
+            id: result.insertId,
+            encryptedPayload,
+            senderId,
+            sender_id: senderId,
+            sender: req.user.username,
+            receiverId: Number(toUserId),
+            receiver_id: Number(toUserId),
+            timestamp: new Date(),
+            type,
+            text: encryptedPayload,
+            reply_to_message_id: replyToMessageId
+        };
+
+        if (req.io) {
+            req.io.to(String(toUserId)).emit('private message', messageData);
+            req.io.to(String(senderId)).emit('refresh conversations');
+            req.io.to(String(toUserId)).emit('refresh conversations');
+        }
+
+        return res.status(201).json(messageData);
+    } catch (error) {
+        console.error('Send private message (REST) error:', error);
+        return res.status(500).json({ message: 'Server error' });
+    }
+});
+
 router.post('/upload-encrypted-file', authenticateToken, async (req, res) => {
     try {
         const { fileData, originalName, mimeType } = req.body;
