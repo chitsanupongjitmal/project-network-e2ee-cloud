@@ -1,9 +1,10 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { decryptMessage } from '../../utils/keyManager';
 
 export const useChatEncryption = (messages, keyPair, peerPublicKey, peerUser) => {
     const [decryptedMessages, setDecryptedMessages] = useState([]);
+    const decryptCacheRef = useRef(new Map());
 
     useEffect(() => {
         if (!keyPair?.privateKey || !peerPublicKey || !peerUser) {
@@ -21,8 +22,13 @@ export const useChatEncryption = (messages, keyPair, peerPublicKey, peerUser) =>
                     let decryptedTextContent = '';
                     let fileInfo = null;
                     let error = null;
+                    const cacheKey = `${msg.id}:${msg.type || ''}:${msg.text || ''}`;
+                    const cachedValue = decryptCacheRef.current.get(cacheKey);
 
-                    if (msg.type?.startsWith('encrypted') && msg.text) {
+                    if (cachedValue) {
+                        decryptedTextContent = cachedValue.decryptedText;
+                        fileInfo = cachedValue.fileInfo;
+                    } else if (msg.type?.startsWith('encrypted') && msg.text) {
                         try {
                             const decryptedPayload = await decryptMessage(msg.text, peerPublicKey, keyPair.privateKey);
                             if (msg.type === 'encrypted_image' || msg.type === 'encrypted_file') {
@@ -31,6 +37,10 @@ export const useChatEncryption = (messages, keyPair, peerPublicKey, peerUser) =>
                             } else {
                                 decryptedTextContent = decryptedPayload;
                             }
+                            decryptCacheRef.current.set(cacheKey, {
+                                decryptedText: decryptedTextContent,
+                                fileInfo
+                            });
                         } catch (e) {
                             error = "🔒 Could not decrypt message.";
                         }
