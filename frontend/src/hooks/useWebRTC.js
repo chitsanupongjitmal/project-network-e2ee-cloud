@@ -1,6 +1,25 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+const getIceServers = () => {
+    const raw = import.meta.env.VITE_ICE_SERVERS;
+    if (raw) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed;
+            }
+        } catch (error) {
+            console.warn('Invalid VITE_ICE_SERVERS, falling back to default STUN servers.');
+        }
+    }
+
+    return [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ];
+};
+
 const useWebRTC = (socket, currentUser) => {
     const [localStream, setLocalStream] = useState(null);
     const [remoteStream, setRemoteStream] = useState(null);
@@ -229,10 +248,7 @@ const useWebRTC = (socket, currentUser) => {
 
 
     const createPeerConnection = useCallback((stream, currentPeerId) => {
-        const iceServers = [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-        ];
+        const iceServers = getIceServers();
 
         if (peerConnection.current) peerConnection.current.close();
         
