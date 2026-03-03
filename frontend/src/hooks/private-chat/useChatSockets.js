@@ -132,6 +132,17 @@ export const useChatSockets = (socket, currentUser, peerUser, peerUsername, setM
             socket.off('friendship_update_needed', handleFriendshipUpdate);
         };
     }, [socket, currentUser.id, peerUser?.id, peerUsername, setMessages, fetchData]);
+
+    useEffect(() => {
+        if (!peerUser?.id) return;
+
+        // Fallback live sync for deployments where socket delivery can be unstable.
+        const intervalId = setInterval(() => {
+            fetchData();
+        }, 2000);
+
+        return () => clearInterval(intervalId);
+    }, [peerUser?.id, fetchData]);
     
     return { isPeerTyping, isPeerOnline, isSessionOutOfSync, isUploading, setIsUploading };
 };
