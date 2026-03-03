@@ -21,7 +21,6 @@ export const useChatData = (peerUsername) => {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         setError(null);
-        setPeerPublicKey(null);
 
         try {
             const token = localStorage.getItem('token');

@@ -74,8 +74,17 @@ router.get('/', authenticateToken, async (req, res) => {
         let privateQuery;
         
         if (query) {
-             privateQuery = `${basePrivateQuery} AND u.username LIKE ?`;
-             privateParams = [...privateParamsBase, `%${query}%`];
+             privateQuery = `${basePrivateQuery} AND (
+                u.username LIKE ?
+                OR u.display_name LIKE ?
+                OR (
+                    CASE
+                        WHEN f.user_one_id = ? THEN f.user_two_nickname
+                        ELSE f.user_one_nickname
+                    END
+                ) LIKE ?
+            )`;
+             privateParams = [...privateParamsBase, `%${query}%`, `%${query}%`, userId, `%${query}%`];
         } else {
              privateQuery = basePrivateQuery;
              privateParams = privateParamsBase;
