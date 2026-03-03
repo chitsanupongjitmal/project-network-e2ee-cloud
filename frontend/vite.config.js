@@ -4,29 +4,40 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
+export default defineConfig(({ mode }) => {
+  const isDev = mode === 'development';
+  const certDir = path.resolve(__dirname, '../backend/certs');
+  const keyPath = path.join(certDir, 'key.pem');
+  const certPath = path.join(certDir, 'cert.pem');
+  const hasLocalCerts = fs.existsSync(keyPath) && fs.existsSync(certPath);
+  const devBackendTarget = process.env.VITE_DEV_BACKEND_URL || 'http://localhost:4001';
 
-    https: {
-      key: fs.readFileSync(path.resolve(__dirname, '../backend/certs/key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, '../backend/certs/cert.pem')),
-    },
+  const server = isDev
+    ? {
+        https: hasLocalCerts
+          ? {
+              key: fs.readFileSync(keyPath),
+              cert: fs.readFileSync(certPath)
+            }
+          : false,
+        proxy: {
+          '/api': {
+            target: devBackendTarget,
+            changeOrigin: true,
+            secure: false
+          },
+          '/socket.io': {
+            target: devBackendTarget,
+            ws: true,
+            changeOrigin: true,
+            secure: false
+          }
+        }
+      }
+    : undefined;
 
-    proxy: {
-
-      '/api': {
-        target: 'https://localhost:4001',
-        changeOrigin: true,
-        secure: false,
-      },
-
-      '/socket.io': {
-        target: 'https://localhost:4001',
-        ws: true,
-        changeOrigin: true,
-        secure: false,
-      },
-    },
-  },
+  return {
+    plugins: [react()],
+    server
+  };
 });

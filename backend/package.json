@@ -1,8 +1,11 @@
 {
   "name": "backend",
-  "module": "index.ts",
-  "type": "module",
+  "main": "src/server.js",
   "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node src/server.js"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

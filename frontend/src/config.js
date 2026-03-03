@@ -1,16 +1,9 @@
+const envServerUrl = (import.meta.env.VITE_SERVER_URL || "").trim();
 
-const envServerUrl = (import.meta.env.VITE_SERVER_URL || '').trim();
+const normalize = (url) => url.replace(/\/$/, "");
 
-function resolveServerUrl() {
-    if (envServerUrl) {
-        return envServerUrl.replace(/\/$/, '');
-    }
-
-    if (typeof window !== 'undefined' && window.location) {
-        return window.location.origin.replace(/\/$/, '');
-    }
-
-    return 'http://localhost:4001';
-}
-
-export const SERVER_URL = resolveServerUrl();
+export const SERVER_URL = (() => {
+  if (envServerUrl) return normalize(envServerUrl);
+  if (import.meta.env.DEV) return "http://localhost:4001";
+  return window.location.origin;
+})();

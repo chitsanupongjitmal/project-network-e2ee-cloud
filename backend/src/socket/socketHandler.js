@@ -10,15 +10,23 @@ const registerSocialHandlers = require('./handlers/socialHandler');
 const registerPrivateCallHandlers = require('./handlers/privateCallHandler');
 const registerGroupCallHandlers = require('./handlers/groupCallHandler');
 
-function initializeSocket(httpServer) {
+function createOriginChecker(allowedOrigins = []) {
+    if (!allowedOrigins.length) {
+        return (_origin, callback) => callback(null, true);
+    }
+
+    return (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('CORS policy: origin not allowed'));
+    };
+}
+
+function initializeSocket(httpServer, allowedOrigins = []) {
     const io = new Server(httpServer, {
         cors: {
-            origin: [
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "https://localhost:5173",
-                "https://192.168.100.7:5173"
-            ],
+            origin: createOriginChecker(allowedOrigins),
             methods: ["GET", "POST"]
         }
     });
