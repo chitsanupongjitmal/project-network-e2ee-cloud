@@ -10,7 +10,17 @@ module.exports = (io, socket) => {
             const userOneId = Math.min(senderId, receiverId);
             const userTwoId = Math.max(senderId, receiverId);
             await db.query(
-                `INSERT INTO friendships (user_one_id, user_two_id, status, action_user_id) VALUES (?, ?, 'pending', ?) ON DUPLICATE KEY UPDATE status = VALUES(status), action_user_id = VALUES(action_user_id)`,
+                `INSERT INTO friendships (user_one_id, user_two_id, status, action_user_id)
+                 VALUES (?, ?, 'pending', ?)
+                 ON DUPLICATE KEY UPDATE
+                 status = CASE
+                    WHEN status IN ('accepted', 'blocked') THEN status
+                    ELSE VALUES(status)
+                 END,
+                 action_user_id = CASE
+                    WHEN status IN ('accepted', 'blocked') THEN action_user_id
+                    ELSE VALUES(action_user_id)
+                 END`,
                 [userOneId, userTwoId, senderId]
             );
             

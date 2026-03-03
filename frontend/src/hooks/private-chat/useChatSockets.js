@@ -89,6 +89,15 @@ export const useChatSockets = (socket, currentUser, peerUser, peerUsername, setM
             }
         };
 
+        const handleMessageBlocked = ({ message, client_id }) => {
+            if (client_id) {
+                setMessages(prevMessages => prevMessages.filter(msg => msg.id !== client_id));
+            }
+            if (message) {
+                alert(message);
+            }
+        };
+
         const handleMessagesRead = ({ readerUsername }) => {  };
         const handleTyping = ({ username }) => setIsPeerTyping(username === peerUsername);
         const handleStopTyping = ({ username }) => { if (username === peerUsername) setIsPeerTyping(false); };
@@ -106,6 +115,7 @@ export const useChatSockets = (socket, currentUser, peerUser, peerUsername, setM
         socket.on('user typing', handleTyping);
         socket.on('user stopped typing', handleStopTyping);
         socket.on('message_unsent', handleMessageUnsent);
+        socket.on('message blocked', handleMessageBlocked);
         socket.on('user online', handleUserOnline); 
         socket.on('user offline', handleUserOffline);
         socket.on('friendship_update_needed', handleFriendshipUpdate); 
@@ -116,6 +126,7 @@ export const useChatSockets = (socket, currentUser, peerUser, peerUsername, setM
             socket.off('user typing', handleTyping);
             socket.off('user stopped typing', handleStopTyping);
             socket.off('message_unsent', handleMessageUnsent);
+            socket.off('message blocked', handleMessageBlocked);
             socket.off('user online', handleUserOnline);
             socket.off('user offline', handleUserOffline);
             socket.off('friendship_update_needed', handleFriendshipUpdate);
