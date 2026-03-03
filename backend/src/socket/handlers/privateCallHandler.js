@@ -3,6 +3,15 @@ const db = require('../../config/db');
 const { userSockets } = require('../state');
 
 module.exports = (io, socket) => {
+    const getSocketIdByUserId = (userId) => {
+        return (
+            userSockets.get(userId) ||
+            userSockets.get(String(userId)) ||
+            userSockets.get(Number(userId)) ||
+            null
+        );
+    };
+
     const emitCallNotAllowed = (payload) => {
         socket.emit('call-not-allowed', {
             reason: payload.reason,
@@ -84,7 +93,7 @@ module.exports = (io, socket) => {
         const isAllowed = await ensureCallAllowed(callerId, targetId);
         if (!isAllowed) return;
 
-        const receiverSocketId = userSockets.get(targetId);
+        const receiverSocketId = getSocketIdByUserId(targetId);
         if (receiverSocketId) {
             io.to(receiverSocketId).emit('call-made', {
                 offer,
@@ -112,7 +121,7 @@ module.exports = (io, socket) => {
         const isAllowed = await ensureCallAllowed(responderId, targetId);
         if (!isAllowed) return;
 
-        const callerSocketId = userSockets.get(targetId);
+        const callerSocketId = getSocketIdByUserId(targetId);
         if (callerSocketId) {
             io.to(callerSocketId).emit('answer-made', { answer, hasVideo });
         }
@@ -120,7 +129,7 @@ module.exports = (io, socket) => {
 
 
     const handleIceCandidate = ({ to, candidate }) => {
-        const peerSocketId = userSockets.get(to);
+        const peerSocketId = getSocketIdByUserId(to);
         if (peerSocketId) {
             io.to(peerSocketId).emit('ice-candidate', { candidate });
         }
@@ -128,7 +137,7 @@ module.exports = (io, socket) => {
 
 
     const handleEndCall = ({ to }) => {
-        const peerSocketId = userSockets.get(to);
+        const peerSocketId = getSocketIdByUserId(to);
         if (peerSocketId) {
             io.to(peerSocketId).emit('call-ended');
         }
@@ -136,7 +145,7 @@ module.exports = (io, socket) => {
 
 
     const handleToggleVideo = ({ to, hasVideo }) => {
-        const peerSocketId = userSockets.get(to);
+        const peerSocketId = getSocketIdByUserId(to);
         if (peerSocketId) {
             io.to(peerSocketId).emit('video-toggled', { hasVideo });
         }
@@ -147,7 +156,7 @@ module.exports = (io, socket) => {
         const targetId = Number(to);
         if (!Number.isInteger(targetId)) return;
 
-        const peerSocketId = userSockets.get(targetId);
+        const peerSocketId = getSocketIdByUserId(targetId);
         if (peerSocketId) {
             io.to(peerSocketId).emit('audio-toggled', {
                 userId: socket.user.id,
@@ -157,7 +166,7 @@ module.exports = (io, socket) => {
     };
 
     const handleBusy = ({ to }) => {
-        const peerSocketId = userSockets.get(to);
+        const peerSocketId = getSocketIdByUserId(to);
         if (peerSocketId) {
             io.to(peerSocketId).emit('user-busy', {
                 userId: socket.user.id,
