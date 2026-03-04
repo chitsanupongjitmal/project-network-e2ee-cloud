@@ -93,8 +93,21 @@ server {
 4. Output directory: `dist`
 5. Add env var in Vercel:
 - `VITE_SERVER_URL=` (leave empty when using `frontend/vercel.json` rewrites)
+- `VITE_SOCKET_URL=` (recommended: set to `wss://api.yourdomain.com` for real websocket)
 
 6. Redeploy.
+
+### WebSocket modes
+
+1. Rewrite mode (quick setup):
+- `VITE_SERVER_URL=` empty
+- `VITE_SOCKET_URL=` empty
+- Works via Vercel rewrites, but Socket.IO may fallback to polling.
+
+2. Dedicated socket domain (recommended):
+- `VITE_SERVER_URL=https://api.yourdomain.com`
+- `VITE_SOCKET_URL=wss://api.yourdomain.com`
+- Better realtime stability and lower latency.
 
 ## 5) Quick verification
 

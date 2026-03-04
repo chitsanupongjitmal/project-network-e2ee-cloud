@@ -1,4 +1,5 @@
 const envServerUrl = (import.meta.env.VITE_SERVER_URL || "").trim();
+const envSocketUrl = (import.meta.env.VITE_SOCKET_URL || "").trim();
 
 const normalize = (url) => url.replace(/\/$/, "");
 const isHttpsPage = typeof window !== "undefined" && window.location.protocol === "https:";
@@ -11,4 +12,15 @@ export const SERVER_URL = (() => {
   }
   if (import.meta.env.DEV) return "http://localhost:4001";
   return "";
+})();
+
+export const SOCKET_URL = (() => {
+  if (!envSocketUrl) return "";
+
+  // Prevent insecure ws/http socket target on HTTPS pages.
+  if (isHttpsPage && (envSocketUrl.startsWith("ws://") || envSocketUrl.startsWith("http://"))) {
+    return "";
+  }
+
+  return normalize(envSocketUrl);
 })();

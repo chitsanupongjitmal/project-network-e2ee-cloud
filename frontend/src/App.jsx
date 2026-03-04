@@ -4,7 +4,7 @@ import { io } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
 
 import { getKeys, clearKeys, getAllGroupKeys, storeGroupKey } from './utils/keyManager';
-import { SERVER_URL } from './config';
+import { SERVER_URL, SOCKET_URL } from './config';
 
 import Layout from './Components/Layout';
 import LoginPage from './Pages/Auth/LoginPage';
@@ -117,10 +117,13 @@ const App = () => {
 
     useEffect(() => {
         if (token && user) {
-            const socketTarget = SERVER_URL || undefined;
+            const socketTarget = SOCKET_URL || SERVER_URL || undefined;
+            const useRewriteProxyMode = !SOCKET_URL && !SERVER_URL;
+            const transports = useRewriteProxyMode ? ["polling"] : ["websocket", "polling"];
             const newSocket = io(socketTarget, {
                 auth: { token },
-                transports: ["websocket", "polling"]
+                transports,
+                upgrade: !useRewriteProxyMode
             });
             setSocket(newSocket);
 
