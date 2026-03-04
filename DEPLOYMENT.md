@@ -25,6 +25,7 @@ npm run start
 - `ENABLE_HTTPS=false`
 - `CORS_ORIGIN=https://project-network-e2ee-cloud.vercel.app`
 - `DB_HOST=pj-cloud.cfkywcoom7ye.ap-southeast-7.rds.amazonaws.com`, `DB_PORT=3306`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- `DB_SSL=true` (RDS with `require_secure_transport=ON`)
 - `JWT_SECRET`
 
 5. Use PM2 (recommended):
