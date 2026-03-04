@@ -24,7 +24,9 @@ function createOriginChecker(allowedOrigins = []) {
 }
 
 function initializeSocket(httpServer, allowedOrigins = []) {
+    const socketPath = process.env.SOCKET_IO_PATH || '/ws';
     const io = new Server(httpServer, {
+        path: socketPath,
         cors: {
             origin: createOriginChecker(allowedOrigins),
             methods: ["GET", "POST"]

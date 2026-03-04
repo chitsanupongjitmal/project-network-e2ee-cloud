@@ -4,7 +4,7 @@ import { io } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
 
 import { getKeys, clearKeys, getAllGroupKeys, storeGroupKey } from './utils/keyManager';
-import { SERVER_URL, SOCKET_URL } from './config';
+import { SERVER_URL, SOCKET_PATH, SOCKET_URL } from './config';
 
 import Layout from './Components/Layout';
 import LoginPage from './Pages/Auth/LoginPage';
@@ -122,6 +122,7 @@ const App = () => {
             const transports = useRewriteProxyMode ? ["polling"] : ["websocket", "polling"];
             const newSocket = io(socketTarget, {
                 auth: { token },
+                path: SOCKET_PATH,
                 transports,
                 upgrade: !useRewriteProxyMode
             });
