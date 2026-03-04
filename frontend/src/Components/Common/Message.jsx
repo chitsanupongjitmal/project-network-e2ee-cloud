@@ -107,6 +107,60 @@ const SecureFileLink = ({ fileInfo, conversationType, conversationId, isSender }
     );
 }
 
+const SecureVideo = ({ fileInfo, conversationType, conversationId }) => {
+    const [videoUrl, setVideoUrl] = useState(null);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        let createdUrl = null;
+
+        const fetchVideo = async () => {
+            if (!fileInfo || !fileInfo.url || !conversationType || !conversationId) return;
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) throw new Error("No auth token");
+
+                const filename = fileInfo.url.split('/').pop();
+                const res = await fetch(`/api/chat/secure-download/${filename}?conversationType=${conversationType}&conversationId=${conversationId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error(`Failed to fetch video: ${res.status} ${res.statusText}`);
+
+                const blob = await res.blob();
+                createdUrl = URL.createObjectURL(blob);
+                if (isMounted) setVideoUrl(createdUrl);
+            } catch (_err) {
+                if (isMounted) setError("Could not load video.");
+            }
+        };
+
+        if (fileInfo.url.startsWith('blob:')) {
+            setVideoUrl(fileInfo.url);
+        } else {
+            fetchVideo();
+        }
+
+        return () => {
+            isMounted = false;
+            if (createdUrl) URL.revokeObjectURL(createdUrl);
+        };
+    }, [fileInfo, conversationType, conversationId]);
+
+    if (error) return <div className="p-3 text-red-100 bg-red-500/20 rounded-lg text-sm">{error}</div>;
+    if (!videoUrl) return <div className="p-3 text-gray-400 animate-pulse text-sm">Loading video...</div>;
+
+    return (
+        <video
+            src={videoUrl}
+            controls
+            playsInline
+            preload="metadata"
+            className="max-w-xs md:max-w-sm rounded-lg bg-black"
+        />
+    );
+};
+
 const ReplyPreview = ({ message, isGroupChat, currentUser, peerUser }) => {
     if (!message) return null;
 
@@ -300,6 +354,24 @@ const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, 
             if (!hasSecureContext && !msg.fileInfo.url.startsWith('blob:')) {
                 return <p className="text-sm italic p-3 text-gray-500">Attachment unavailable.</p>;
             }
+
+            const mimeType = (msg.fileInfo.mimeType || '').toLowerCase();
+            const fileName = (msg.fileInfo.fileName || '').toLowerCase();
+            const isVideoFile = mimeType.startsWith('video/') || /\.(mp4|mov|webm|m4v|ogg)$/i.test(fileName);
+
+            if (isVideoFile) {
+                return (
+                    <div className="p-1">
+                        <SecureVideo
+                            fileInfo={msg.fileInfo}
+                            conversationType={conversationType}
+                            conversationId={conversationId}
+                        />
+                        {msg.fileInfo.caption && <p className="text-sm mt-2 p-2">{msg.fileInfo.caption}</p>}
+                    </div>
+                );
+            }
+
             if (msg.fileInfo.url.startsWith('blob:')) {
                 return (
                     <div className="p-3">
@@ -397,4 +469,3 @@ const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, 
 };
 
 export default Message;
-
