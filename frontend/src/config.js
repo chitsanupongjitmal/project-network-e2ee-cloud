@@ -1,6 +1,6 @@
 const envServerUrl = (import.meta.env.VITE_SERVER_URL || "").trim();
 const envSocketUrl = (import.meta.env.VITE_SOCKET_URL || "").trim();
-const envSocketPath = (import.meta.env.VITE_SOCKET_PATH || "/ws").trim();
+const envSocketPath = (import.meta.env.VITE_SOCKET_PATH || "/api/ws").trim();
 
 const normalize = (url) => url.replace(/\/$/, "");
 const isHttpsPage = typeof window !== "undefined" && window.location.protocol === "https:";

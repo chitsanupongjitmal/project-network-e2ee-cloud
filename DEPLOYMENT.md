@@ -27,7 +27,7 @@ npm run start
 - `DB_HOST=pj-cloud.cfkywcoom7ye.ap-southeast-7.rds.amazonaws.com`, `DB_PORT=3306`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
 - `DB_SSL=true` (RDS with `require_secure_transport=ON`)
 - `JWT_SECRET`
-- `SOCKET_IO_PATH=/ws`
+- `SOCKET_IO_PATH=/api/ws`
 
 5. Use PM2 (recommended):
 ```bash
@@ -95,7 +95,7 @@ server {
 5. Add env var in Vercel:
 - `VITE_SERVER_URL=` (leave empty when using `frontend/vercel.json` rewrites)
 - `VITE_SOCKET_URL=` (recommended: set to `wss://api.yourdomain.com` for real websocket)
-- `VITE_SOCKET_PATH=/ws`
+- `VITE_SOCKET_PATH=/api/ws`
 
 6. Redeploy.
 
