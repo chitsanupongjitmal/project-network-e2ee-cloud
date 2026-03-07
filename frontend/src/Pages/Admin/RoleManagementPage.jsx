@@ -37,7 +37,12 @@ const RoleManagementPage = ({ currentUser }) => {
 
             const usersData = await usersRes.json();
             const rolesData = await rolesRes.json();
-            setUsers(usersData.map(u => ({ ...u, role: (u.role || 'user').toLowerCase() })));
+            setUsers(usersData.map(u => ({
+                ...u,
+                role: (u.role || 'user').toLowerCase(),
+                approval_status: (u.approval_status || 'approved').toLowerCase(),
+                can_create_group: !!u.can_create_group
+            })));
             const normalizedRoles = Array.from(new Set(rolesData.map(r => (r.name || '').toLowerCase()).filter(Boolean)));
             setRoles(normalizedRoles);
         } catch (err) {
@@ -82,6 +87,66 @@ const RoleManagementPage = ({ currentUser }) => {
         }
     };
 
+    const handleApprovalChange = async (userId, status) => {
+        setError('');
+        setSuccess('');
+        setUpdatingUserId(userId);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${SERVER_URL}/api/admin/users/${userId}/approval`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ status })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || 'Failed to update approval status.');
+            }
+
+            setUsers(prev => prev.map(u => (u.id === userId ? { ...u, approval_status: status } : u)));
+            setSuccess('Approval status updated successfully.');
+        } catch (err) {
+            console.error('Update approval error:', err);
+            setError(err.message);
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
+    const handleGroupCreatePermissionChange = async (userId, canCreateGroup) => {
+        setError('');
+        setSuccess('');
+        setUpdatingUserId(userId);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${SERVER_URL}/api/admin/users/${userId}/group-create-permission`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ canCreateGroup })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || 'Failed to update group permission.');
+            }
+
+            setUsers(prev => prev.map(u => (u.id === userId ? { ...u, can_create_group: canCreateGroup } : u)));
+            setSuccess('Group creation permission updated successfully.');
+        } catch (err) {
+            console.error('Update group create permission error:', err);
+            setError(err.message);
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
     if (!currentUser || currentUser.role !== 'super-admin') {
         return <div className="p-6 text-center text-red-500">Access denied.</div>;
     }
@@ -106,6 +171,8 @@ const RoleManagementPage = ({ currentUser }) => {
                         <tr>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approval</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Can Create Group</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         </tr>
                     </thead>
@@ -141,6 +208,30 @@ const RoleManagementPage = ({ currentUser }) => {
                                                 </option>
                                             ))}
                                         </select>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <select
+                                            className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            value={user.approval_status || 'approved'}
+                                            onChange={(e) => handleApprovalChange(user.id, e.target.value)}
+                                            disabled={updatingUserId === user.id}
+                                        >
+                                            <option value="pending">Pending</option>
+                                            <option value="approved">Approved</option>
+                                            <option value="rejected">Rejected</option>
+                                        </select>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <label className="inline-flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4"
+                                                checked={!!user.can_create_group}
+                                                onChange={(e) => handleGroupCreatePermissionChange(user.id, e.target.checked)}
+                                                disabled={updatingUserId === user.id}
+                                            />
+                                            <span className="text-sm text-gray-700">{user.can_create_group ? 'Allowed' : 'Not allowed'}</span>
+                                        </label>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-500">
                                         {isSelf ? 'Your account' : updatingUserId === user.id ? 'Saving...' : 'Ready'}

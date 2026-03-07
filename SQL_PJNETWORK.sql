@@ -242,6 +242,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `encrypted_private_key` text DEFAULT NULL,
   `active_socket_id` varchar(255) DEFAULT NULL,
   `display_name` varchar(255) DEFAULT NULL,
+  `approval_status` enum('pending','approved','rejected') NOT NULL DEFAULT 'approved',
+  `can_create_group` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

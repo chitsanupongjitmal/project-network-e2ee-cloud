@@ -65,7 +65,9 @@ router.post('/register', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         
         const [userInsertResult] = await db.query(
-            'INSERT INTO users (username, password, public_key, public_key_version, encrypted_private_key, display_name) VALUES (?, ?, ?, ?, ?, ?)', 
+            `INSERT INTO users (
+                username, password, public_key, public_key_version, encrypted_private_key, display_name, approval_status, can_create_group
+            ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0)`,
             [username, hashedPassword, publicKeyPem, keyVersion, encryptedData, username]
         );
 
@@ -85,7 +87,7 @@ router.post('/register', async (req, res) => {
             [newUserId, userRoleId]
         );
         
-        res.status(201).json({ message: 'User registered successfully' });
+        res.status(201).json({ message: 'Registration submitted. Please wait for admin approval.' });
     } catch (error) {
         console.error("Register error:", error);
         res.status(500).json({ message: 'Server error' });
@@ -108,11 +110,25 @@ router.post('/login', async (req, res) => {
         if (users.length === 0) return res.status(401).json({ message: 'Invalid credentials' });
 
         const user = users[0];
+        const approvalStatus = user.approval_status || 'approved';
+        if (approvalStatus !== 'approved') {
+            if (approvalStatus === 'pending') {
+                return res.status(403).json({ message: 'Your account is pending admin approval.' });
+            }
+            return res.status(403).json({ message: 'Your account was rejected. Please contact an administrator.' });
+        }
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
 
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role || 'user' }, 
+            {
+                id: user.id,
+                username: user.username,
+                role: user.role || 'user',
+                can_create_group: !!user.can_create_group,
+                approval_status: approvalStatus
+            },
             JWT_SECRET, 
             { expiresIn: '24h' }
         );
@@ -124,6 +140,8 @@ router.post('/login', async (req, res) => {
                 username: user.username,
                 display_name: user.display_name || user.username,
                 role: user.role || 'user',
+                can_create_group: !!user.can_create_group,
+                approval_status: approvalStatus,
                 avatar_url: user.avatar_url,
                 show_online_status: user.show_online_status,
                 public_key: user.public_key
@@ -139,7 +157,7 @@ router.post('/login', async (req, res) => {
 router.get('/check-session', authenticateToken, async (req, res) => {
     try {
         const [users] = await db.query(
-            `SELECT u.avatar_url, u.show_online_status, u.public_key, u.display_name, r.name as role 
+            `SELECT u.avatar_url, u.show_online_status, u.public_key, u.display_name, u.can_create_group, u.approval_status, r.name as role
              FROM users u
              LEFT JOIN user_roles ur ON u.id = ur.user_id
              LEFT JOIN roles r ON ur.role_id = r.id
@@ -156,6 +174,8 @@ router.get('/check-session', authenticateToken, async (req, res) => {
                 public_key: users.length > 0 ? users[0].public_key : null,
                 display_name: users.length > 0 ? (users[0].display_name || req.user.username) : req.user.username,
                 role: users.length > 0 ? (users[0].role || 'user') : 'user',
+                can_create_group: users.length > 0 ? !!users[0].can_create_group : false,
+                approval_status: users.length > 0 ? (users[0].approval_status || 'approved') : 'approved'
             }
         });
     } catch (error) { res.status(500).json({ message: 'Server error' }); }

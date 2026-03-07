@@ -9,6 +9,19 @@ const GROUP_MANAGER_ROLES = new Set(['group-admin', 'super-admin']);
 
 const ensureGroupManager = (role) => GROUP_MANAGER_ROLES.has(role);
 
+async function canUserCreateGroup(userId, roleFromToken) {
+    if (ensureGroupManager(roleFromToken)) return true;
+    try {
+        const [rows] = await db.query('SELECT can_create_group, approval_status FROM users WHERE id = ? LIMIT 1', [userId]);
+        if (!rows.length) return false;
+        const user = rows[0];
+        return user.approval_status === 'approved' && !!user.can_create_group;
+    } catch (error) {
+        console.error('Error checking group create permission:', error);
+        return false;
+    }
+}
+
 async function userHasPermission(roleName, permissionName) {
     if (!roleName) return false;
     try {
@@ -31,8 +44,9 @@ router.post('/', authenticateToken, async (req, res) => {
     const creatorId = req.user.id;
     const currentRole = req.user.role;
 
-    if (!ensureGroupManager(currentRole)) {
-        return res.status(403).json({ message: 'Only group administrators can create groups.' });
+    const allowed = await canUserCreateGroup(creatorId, currentRole);
+    if (!allowed) {
+        return res.status(403).json({ message: 'You do not have permission to create groups.' });
     }
 
     if (!name || !members || !Array.isArray(members)) {

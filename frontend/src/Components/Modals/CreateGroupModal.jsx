@@ -9,7 +9,9 @@ const CreateGroupModal = ({ onClose, onGroupCreated, keyPair, currentUser }) => 
     const [friends, setFriends] = useState([]);
     const [selectedFriends, setSelectedFriends] = useState(new Set());
     const [groupName, setGroupName] = useState('');
-    const canManageGroups = currentUser ? ALLOWED_ROLES.has(currentUser.role) : false;
+    const canManageGroups = currentUser
+        ? (ALLOWED_ROLES.has(currentUser.role) || !!currentUser.can_create_group)
+        : false;
     
     useEffect(() => {
         if (!canManageGroups) {

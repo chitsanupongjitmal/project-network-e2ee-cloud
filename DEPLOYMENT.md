@@ -19,7 +19,12 @@ npm install
 npm run start
 ```
 
-4. In `backend/.env` set at least:
+4. Run DB migration for account approval and group-create permission:
+```bash
+mysql -h <RDS_HOST> -P 3306 -u <DB_USER> -p --ssl-mode=REQUIRED < /var/www/project-network-e2ee-cloud/deploy/sql/20260307_add_user_approval_and_group_permission.sql
+```
+
+5. In `backend/.env` set at least:
 - `NODE_ENV=production`
 - `PORT=4001`
 - `ENABLE_HTTPS=false`
@@ -29,7 +34,7 @@ npm run start
 - `JWT_SECRET`
 - `SOCKET_IO_PATH=/api/ws`
 
-5. Use PM2 (recommended):
+6. Use PM2 (recommended):
 ```bash
 npm i -g pm2
 pm2 start ecosystem.config.cjs

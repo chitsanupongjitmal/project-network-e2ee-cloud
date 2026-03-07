@@ -23,7 +23,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
         if (!response.ok) {
             throw new Error(data.message || 'Failed to register');
         }
-        alert('Registration successful! Please log in.');
+        alert(data.message || 'Registration submitted. Please wait for admin approval.');
         onSwitchToLogin();
     } catch (err) {
         setError(err.message);

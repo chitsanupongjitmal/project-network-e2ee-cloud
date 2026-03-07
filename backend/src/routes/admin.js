@@ -31,6 +31,8 @@ router.get('/users', async (_req, res) => {
                 u.id,
                 u.username,
                 u.avatar_url,
+                u.approval_status,
+                u.can_create_group,
                 COALESCE(r.name, 'user') AS role
              FROM users u
              LEFT JOIN user_roles ur ON u.id = ur.user_id
@@ -76,6 +78,58 @@ router.put('/users/:userId/role', async (req, res) => {
         res.json({ message: 'Role updated successfully.' });
     } catch (error) {
         console.error('Admin update role error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+router.put('/users/:userId/approval', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { status } = req.body;
+        const normalizedStatus = (status || '').toLowerCase();
+        const allowedStatuses = new Set(['pending', 'approved', 'rejected']);
+
+        if (!allowedStatuses.has(normalizedStatus)) {
+            return res.status(400).json({ message: 'Invalid status. Use pending, approved or rejected.' });
+        }
+
+        const [result] = await db.query(
+            'UPDATE users SET approval_status = ? WHERE id = ?',
+            [normalizedStatus, userId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        res.json({ message: 'Approval status updated successfully.' });
+    } catch (error) {
+        console.error('Admin update approval error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+router.put('/users/:userId/group-create-permission', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { canCreateGroup } = req.body;
+
+        if (typeof canCreateGroup !== 'boolean') {
+            return res.status(400).json({ message: 'canCreateGroup must be boolean.' });
+        }
+
+        const [result] = await db.query(
+            'UPDATE users SET can_create_group = ? WHERE id = ?',
+            [canCreateGroup ? 1 : 0, userId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        res.json({ message: 'Group creation permission updated successfully.' });
+    } catch (error) {
+        console.error('Admin update group create permission error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
