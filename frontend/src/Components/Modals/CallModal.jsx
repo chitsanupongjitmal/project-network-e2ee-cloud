@@ -33,9 +33,22 @@ const CallModal = ({
             if (remoteAudioRef.current.srcObject !== remoteStream) {
                 remoteAudioRef.current.srcObject = remoteStream;
             }
+            // iOS/Safari may require an explicit play() after srcObject is set.
+            const tryPlay = () => {
+                remoteAudioRef.current?.play?.().catch(() => {
+                    // Keep silent; user gesture during call accept usually unlocks audio.
+                });
+            };
+            tryPlay();
+            remoteAudioRef.current.onloadedmetadata = tryPlay;
         } else {
             remoteAudioRef.current.srcObject = null;
         }
+        return () => {
+            if (remoteAudioRef.current) {
+                remoteAudioRef.current.onloadedmetadata = null;
+            }
+        };
     }, [remoteStream]);
 
     const formatTime = (timeInSeconds) => {

@@ -263,7 +263,24 @@ const useWebRTC = (socket, currentUser) => {
             }
         };
         pc.ontrack = (event) => {
-            const incomingStream = event.streams[0];
+            const streamFromEvent = event.streams && event.streams[0];
+            let incomingStream = streamFromEvent;
+
+            // Safari can deliver audio tracks with empty event.streams.
+            if (!incomingStream && event.track) {
+                const existing = remoteStreamRef.current;
+                if (existing) {
+                    const alreadyHasTrack = existing.getTracks().some(track => track.id === event.track.id);
+                    if (!alreadyHasTrack) {
+                        existing.addTrack(event.track);
+                    }
+                    incomingStream = existing;
+                } else {
+                    incomingStream = new MediaStream([event.track]);
+                }
+            }
+
+            if (!incomingStream) return;
             setRemoteStream(incomingStream);
             evaluateRemoteVideoStream(incomingStream);
         };
