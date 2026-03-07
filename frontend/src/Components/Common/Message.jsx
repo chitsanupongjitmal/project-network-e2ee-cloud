@@ -271,12 +271,13 @@ const ReplyPreview = ({ message, isGroupChat, currentUser, peerUser }) => {
 };
 
 
-const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, isGroupChat, peerUser, groupMemberMap }) => {
+const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, isGroupChat, peerUser, groupMemberMap, themeMode = 'light' }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
     const senderIdentifier = msg.sender_id ?? msg.senderId ?? msg.sender?.id ?? msg.user_id ?? msg.userId ?? null;
     const currentUserId = currentUser?.id ?? null;
     const isSender = currentUserId !== null && senderIdentifier !== null && String(senderIdentifier) === String(currentUserId);
+    const isDark = themeMode === 'dark';
     const messageType = msg.type || msg.message_type;
     const isCallSummary = messageType === 'call_summary';
     const participantInfo = isGroupChat && groupMemberMap ? groupMemberMap[senderIdentifier] : null;
@@ -464,7 +465,7 @@ const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, 
             <div className={`flex ${alignClass} mb-4`}>
                 <div className="flex flex-col max-w-full">
                     <div className={`flex ${isSender ? 'justify-end pr-2' : 'justify-start pl-2'} mb-1`}>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <div className={`flex items-center gap-2 text-xs ${isDark ? 'text-gray-200' : 'text-gray-500'}`}>
                             <span className="font-semibold">
                                 {isSender ? (isGroupChat ? senderDisplayName : 'You') : senderDisplayName}
                             </span>
