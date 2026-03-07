@@ -97,41 +97,6 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
         return true;
     });
 
-    const exportCallHistoryCsv = () => {
-        const rows = filteredCallHistory.map((item) => {
-            const isPrivate = item.call_type === 'private';
-            const peerName = item.caller_id === currentUser.id
-                ? (item.callee_username || 'Unknown')
-                : (item.caller_username || 'Unknown');
-            const title = isPrivate ? `Private call with ${peerName}` : `Group call: ${item.group_name || `Group ${item.group_id}`}`;
-            return [
-                item.id,
-                item.call_type,
-                item.mode || 'audio',
-                item.status,
-                title,
-                item.duration_seconds || 0,
-                formatTime(item.started_at || item.created_at),
-                formatTime(item.ended_at)
-            ];
-        });
-
-        const header = ['id', 'call_type', 'mode', 'status', 'title', 'duration_seconds', 'started_at', 'ended_at'];
-        const csv = [header, ...rows]
-            .map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
-            .join('\n');
-
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `call-history-${new Date().toISOString().slice(0, 10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-
     const handleUnhideChat = async (chat) => {
         try {
             const token = localStorage.getItem('token');
@@ -336,13 +301,6 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
             <div className="bg-white p-6 rounded-lg shadow-md mt-6">
                 <div className="flex items-center justify-between gap-3 mb-4">
                     <h2 className="text-xl font-bold">Call History</h2>
-                    <button
-                        type="button"
-                        onClick={exportCallHistoryCsv}
-                        className="px-3 py-1.5 text-sm rounded-md bg-gray-900 text-white hover:bg-black"
-                    >
-                        Export CSV
-                    </button>
                 </div>
                 <div className="flex flex-wrap gap-2 mb-4">
                     {[
