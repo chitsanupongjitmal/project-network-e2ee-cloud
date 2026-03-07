@@ -1,6 +1,6 @@
 
 const db = require('../../config/db');
-const { userSockets, activeGroupCalls, activeGroupCallMeta } = require('../state');
+const { userSockets, activeGroupCalls, activeGroupCallMeta, activePrivateCalls } = require('../state');
 
 const getFriends = async (userId) => {
     const [friends] = await db.query(
@@ -60,6 +60,48 @@ const emitGroupCallSummary = async (io, { groupId, senderId, senderUsername, sen
         io.to(`group_${groupId}`).emit('refresh conversations');
     } catch (error) {
         console.error('Failed to save group call summary message on disconnect:', error);
+    }
+};
+
+const buildPrivateCallSummaryText = ({ mode, status, durationSeconds }) => JSON.stringify({
+    event: 'call_ended',
+    mode: mode || 'audio',
+    status: status || 'completed',
+    durationSeconds: Number(durationSeconds) || 0,
+    endedAt: new Date().toISOString(),
+});
+
+const emitPrivateCallSummary = async (io, { senderId, receiverId, senderUsername, mode, status, durationSeconds }) => {
+    try {
+        const summaryText = buildPrivateCallSummaryText({ mode, status, durationSeconds });
+        const [result] = await db.query(
+            `INSERT INTO private_messages (sender_id, receiver_id, message_text, message_type, receiver_key_version, reply_to_message_id)
+             VALUES (?, ?, ?, 'call_summary', NULL, NULL)`,
+            [senderId, receiverId, summaryText]
+        );
+
+        const messageData = {
+            id: result.insertId,
+            senderId,
+            sender: senderUsername,
+            receiverId,
+            text: summaryText,
+            type: 'call_summary',
+            timestamp: new Date().toISOString(),
+        };
+
+        const senderSocketId = userSockets.get(Number(senderId));
+        const receiverSocketId = userSockets.get(Number(receiverId));
+        if (senderSocketId) {
+            io.to(senderSocketId).emit('private message', messageData);
+            io.to(senderSocketId).emit('refresh conversations');
+        }
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit('private message', messageData);
+            io.to(receiverSocketId).emit('refresh conversations');
+        }
+    } catch (error) {
+        console.error('Failed to save private call summary message on disconnect:', error);
     }
 };
 
@@ -190,6 +232,47 @@ module.exports = (io, socket) => {
                     }
                 }
             });
+
+            for (const [callKey, activeCall] of activePrivateCalls.entries()) {
+                const callerId = Number(activeCall?.callerId);
+                const calleeId = Number(activeCall?.calleeId);
+                if (!Number.isInteger(callerId) || !Number.isInteger(calleeId)) continue;
+                if (callerId !== Number(socket.user.id) && calleeId !== Number(socket.user.id)) continue;
+
+                const peerId = callerId === Number(socket.user.id) ? calleeId : callerId;
+                const peerSocketId = userSockets.get(peerId);
+                if (peerSocketId) {
+                    io.to(peerSocketId).emit('call-ended');
+                }
+
+                if (activeCall?.id) {
+                    const wasAnswered = !!activeCall.answeredAt;
+                    const status = wasAnswered ? 'completed' : 'missed';
+                    const durationSeconds = wasAnswered
+                        ? Math.max(0, Math.floor((Date.now() - new Date(activeCall.answeredAt).getTime()) / 1000))
+                        : 0;
+
+                    await db.query(
+                        `UPDATE call_history
+                         SET status = ?, ended_at = NOW(), duration_seconds = ?
+                         WHERE id = ?`,
+                        [status, durationSeconds, activeCall.id]
+                    ).catch((error) => {
+                        console.error('Failed to finalize private call history on disconnect:', error);
+                    });
+
+                    await emitPrivateCallSummary(io, {
+                        senderId: Number(socket.user.id),
+                        receiverId: peerId,
+                        senderUsername: socket.user.username,
+                        mode: activeCall.mode || 'audio',
+                        status,
+                        durationSeconds,
+                    });
+                }
+
+                activePrivateCalls.delete(callKey);
+            }
         } catch (error) {
             console.error("[ERROR] during disconnect:", error);
         }
