@@ -69,7 +69,7 @@ const PostItem = ({ post, onPostUpdate }) => {
                 </Link>
                 <div className="flex flex-col">
                     <div className="flex items-center gap-2">
-                        <Link to={`/profile/${post.username}`} className="font-bold hover:underline">
+                        <Link to={`/profile/${post.username}`} className="font-bold text-gray-900 hover:underline">
                             {post.username}
                         </Link>
                         {roleMeta && (
@@ -109,7 +109,7 @@ const PostItem = ({ post, onPostUpdate }) => {
                             <Avatar user={comment} size="w-8 h-8" />
                             <div className="bg-gray-100 p-2 rounded-lg flex-1">
                                 <p>
-                                    <span className="font-bold">{comment.username}</span>{' '}
+                                    <span className="font-bold text-gray-900">{comment.username}</span>{' '}
                                     <span className="text-gray-800">{comment.content}</span>
                                 </p>
                             </div>
@@ -121,7 +121,7 @@ const PostItem = ({ post, onPostUpdate }) => {
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                             placeholder="Write a comment..."
-                            className="flex-1 px-3 py-2 bg-gray-100 rounded-full focus:outline-none"
+                            className="flex-1 px-3 py-2 bg-gray-100 text-gray-900 placeholder:text-gray-500 rounded-full focus:outline-none"
                         />
                         <button type="submit" className="text-blue-500 font-semibold">Post</button>
                     </form>

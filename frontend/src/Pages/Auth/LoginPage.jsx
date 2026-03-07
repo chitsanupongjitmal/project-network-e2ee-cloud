@@ -84,7 +84,7 @@ const LoginPage = ({ onLogin, onSwitchToRegister }) => {
             {isLoggingIn ? 'Logging in...' : 'Login'}
           </button>
         </form>
-        <p className="mt-4 text-sm">
+        <p className="mt-4 text-sm text-gray-600">
           Don't have an account?{' '}
           <button
             onClick={onSwitchToRegister}

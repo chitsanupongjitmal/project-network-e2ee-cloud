@@ -136,7 +136,7 @@ const FeedPage = ({ themeMode = 'light' }) => {
                 <textarea
                     value={postText}
                     onChange={(e) => setPostText(e.target.value)}
-                    className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 border rounded-md bg-white text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500"
                     placeholder="What's on your mind?"
                     rows={3}
                 />
