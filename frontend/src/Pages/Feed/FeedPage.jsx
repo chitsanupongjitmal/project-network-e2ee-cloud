@@ -126,7 +126,8 @@ const FeedPage = () => {
     }
 
     return (
-        <div className="max-w-2xl mx-auto p-3 sm:p-4 font-sans">
+        <div className="h-full overflow-y-auto">
+        <div className="max-w-2xl mx-auto p-3 sm:p-4 font-sans pb-24 sm:pb-6">
             <h1 className="text-3xl font-bold mb-6 text-gray-800">News Feed</h1>
 
             <form onSubmit={handleCreatePost} className="bg-white p-4 rounded-lg shadow-md mb-6 space-y-3">
@@ -182,6 +183,7 @@ const FeedPage = () => {
                     </div>
                 )}
             </div>
+        </div>
         </div>
     );
 };
