@@ -240,8 +240,8 @@ const RoleManagementPage = ({ currentUser }) => {
     return (
         <div className="max-w-4xl mx-auto p-6 font-sans space-y-6 overflow-y-auto">
             <div>
-                <h1 className="text-3xl font-bold text-gray-800">Admin Role Management</h1>
-                <p className="text-sm text-gray-500 mt-1">Assign application roles to users. You cannot change your own role.</p>
+                <h1 className="text-3xl font-bold text-white">Admin Role Management</h1>
+                <p className="text-sm text-gray-300 mt-1">Assign application roles to users. You cannot change your own role.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -316,12 +316,12 @@ const RoleManagementPage = ({ currentUser }) => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search username..."
-                    className="border rounded-md px-3 py-2 text-sm flex-1 min-w-[180px]"
+                    className="border rounded-md px-3 py-2 text-sm flex-1 min-w-[180px] bg-white text-gray-900 placeholder:text-gray-400"
                 />
                 <select
                     value={approvalFilter}
                     onChange={(e) => setApprovalFilter(e.target.value)}
-                    className="border rounded-md px-3 py-2 text-sm"
+                    className="border rounded-md px-3 py-2 text-sm bg-white text-gray-900"
                 >
                     <option value="all">All approvals</option>
                     <option value="pending">Pending</option>
@@ -363,7 +363,7 @@ const RoleManagementPage = ({ currentUser }) => {
                                     </td>
                                     <td className="px-4 py-3">
                                         <select
-                                            className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="border rounded-md px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             value={(user.role || 'user').toLowerCase()}
                                             onChange={(e) => handleRoleChange(user.id, e.target.value)}
                                             disabled={isSelf || updatingUserId === user.id}
@@ -377,7 +377,7 @@ const RoleManagementPage = ({ currentUser }) => {
                                     </td>
                                     <td className="px-4 py-3">
                                         <select
-                                            className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="border rounded-md px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             value={user.approval_status || 'approved'}
                                             onChange={(e) => handleApprovalChange(user.id, e.target.value)}
                                             disabled={updatingUserId === user.id}
