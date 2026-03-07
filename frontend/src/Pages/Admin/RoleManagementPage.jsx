@@ -150,6 +150,37 @@ const RoleManagementPage = ({ currentUser }) => {
         }
     };
 
+    const handleDeleteUser = async (userId, username) => {
+        const confirmed = window.confirm(`Delete user "${username}"?\nThis action cannot be undone.`);
+        if (!confirmed) return;
+
+        setError('');
+        setSuccess('');
+        setUpdatingUserId(userId);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${SERVER_URL}/api/admin/users/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || 'Failed to delete user.');
+            }
+
+            setUsers(prev => prev.filter(u => u.id !== userId));
+            setSuccess(`Deleted user "${username}" successfully.`);
+        } catch (err) {
+            console.error('Delete user error:', err);
+            setError(err.message);
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
     const handleApproveAllPending = async () => {
         const pendingUsers = users.filter(u => (u.approval_status || 'approved') === 'pending');
         if (!pendingUsers.length) return;
@@ -308,6 +339,7 @@ const RoleManagementPage = ({ currentUser }) => {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approval</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Can Create Group</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -369,6 +401,20 @@ const RoleManagementPage = ({ currentUser }) => {
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-500">
                                         {isSelf ? 'Your account' : updatingUserId === user.id ? 'Saving...' : 'Ready'}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {isSelf ? (
+                                            <span className="text-xs text-gray-400">-</span>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteUser(user.id, user.username)}
+                                                disabled={updatingUserId === user.id}
+                                                className="px-3 py-2 text-xs rounded-md bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300"
+                                            >
+                                                Delete User
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             );

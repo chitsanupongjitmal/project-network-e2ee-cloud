@@ -189,7 +189,7 @@ const ProfilePage = ({ currentUser, socket }) => {
 
   return (
     <div className="max-w-3xl mx-auto p-4 font-sans">
-      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+      <div className="bg-white text-gray-900 p-6 rounded-lg shadow-md mb-6">
           <div className="flex items-center gap-6">
               <div className="relative">
                   <Avatar user={isMyProfile ? currentUser : profileUser} size="w-24 h-24" />
@@ -225,7 +225,7 @@ const ProfilePage = ({ currentUser, socket }) => {
       </div>
       
       {isMyProfile && (
-         <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+         <div className="bg-white text-gray-900 p-4 rounded-lg shadow-md mb-6">
             <div className="flex items-center justify-between mb-2">
                 <h2 className="font-bold">Create a new post</h2>
                 {roleMeta && (
@@ -253,7 +253,7 @@ const ProfilePage = ({ currentUser, socket }) => {
         <h2 className="text-xl font-bold">Posts</h2>
         {profile.posts.length > 0 ? (
           profile.posts.map(post => (
-            <div key={post.id} className="bg-white p-4 rounded-lg shadow-sm">
+            <div key={post.id} className="bg-white text-gray-900 p-4 rounded-lg shadow-sm">
               {post.content && <p className="text-gray-800">{post.content}</p>}
               {post.image_url && (
                 <img
@@ -269,7 +269,7 @@ const ProfilePage = ({ currentUser, socket }) => {
             </div>
           ))
         ) : (
-          <div className="bg-white p-4 rounded-lg shadow-sm">
+          <div className="bg-white text-gray-900 p-4 rounded-lg shadow-sm">
             <p className="text-gray-500">This user has no posts yet.</p>
           </div>
         )}
@@ -279,5 +279,4 @@ const ProfilePage = ({ currentUser, socket }) => {
 };
 
 export default ProfilePage;
-
 

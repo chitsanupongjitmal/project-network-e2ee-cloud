@@ -134,4 +134,26 @@ router.put('/users/:userId/group-create-permission', async (req, res) => {
     }
 });
 
+router.delete('/users/:userId', async (req, res) => {
+    const userId = Number(req.params.userId);
+    if (!Number.isInteger(userId) || userId <= 0) {
+        return res.status(400).json({ message: 'Invalid user id.' });
+    }
+
+    if (userId === req.user.id) {
+        return res.status(400).json({ message: 'You cannot delete your own account.' });
+    }
+
+    try {
+        const [result] = await db.query('DELETE FROM users WHERE id = ?', [userId]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+        res.json({ message: 'User deleted successfully.' });
+    } catch (error) {
+        console.error('Admin delete user error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 module.exports = router;
