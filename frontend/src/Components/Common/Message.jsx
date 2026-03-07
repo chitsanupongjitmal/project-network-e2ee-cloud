@@ -14,20 +14,21 @@ const formatCallDuration = (totalSeconds) => {
     return `${minutes}m ${String(remainSeconds).padStart(2, '0')}s`;
 };
 
-const getCallSummaryLabel = (rawText) => {
-    if (!rawText) return 'Call ended';
-    if (typeof rawText !== 'string') return 'Call ended';
+const getCallSummaryMeta = (rawText) => {
+    if (!rawText || typeof rawText !== 'string') {
+        return { label: 'Call ended', tone: 'default', icon: '📞' };
+    }
 
     try {
         const parsed = JSON.parse(rawText);
-        if (!parsed || typeof parsed !== 'object') return 'Call ended';
-        if (parsed.status === 'missed') return 'Missed call';
+        if (!parsed || typeof parsed !== 'object') return { label: 'Call ended', tone: 'default', icon: '📞' };
+        if (parsed.status === 'missed') return { label: 'Missed call', tone: 'missed', icon: '📵' };
 
         const modeLabel = parsed.mode === 'video' ? 'Video call ended' : 'Call ended';
         const durationLabel = formatCallDuration(parsed.durationSeconds);
-        return `${modeLabel} • ${durationLabel}`;
+        return { label: `${modeLabel} • ${durationLabel}`, tone: 'default', icon: '📞' };
     } catch (_error) {
-        return rawText;
+        return { label: rawText, tone: 'default', icon: '📞' };
     }
 };
 
@@ -444,11 +445,14 @@ const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, 
     const shouldShowMeta = !msg.is_unsent && (formattedTimestamp || isSender);
 
     if (isCallSummary) {
-        const callSummaryLabel = getCallSummaryLabel(msg.text ?? msg.decryptedText);
+        const callSummary = getCallSummaryMeta(msg.text ?? msg.decryptedText);
+        const summaryClasses = callSummary.tone === 'missed'
+            ? 'bg-red-50 text-red-700 border-red-200'
+            : 'bg-gray-100 text-gray-600 border-gray-200';
         return (
             <div className="flex justify-center my-3">
-                <div className="bg-gray-100 text-gray-600 text-xs px-3 py-1.5 rounded-full border border-gray-200">
-                    <span>{callSummaryLabel}</span>
+                <div className={`text-xs px-3 py-1.5 rounded-full border ${summaryClasses}`}>
+                    <span>{callSummary.icon} {callSummary.label}</span>
                     {formattedTimestamp ? <span className="ml-2 text-gray-500">({formattedTimestamp})</span> : null}
                 </div>
             </div>

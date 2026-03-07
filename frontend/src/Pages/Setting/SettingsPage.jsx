@@ -9,6 +9,8 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
     const [avatarFile, setAvatarFile] = useState(null);
     const [avatarPreview, setAvatarPreview] = useState('');
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [callHistory, setCallHistory] = useState([]);
+    const [callFilter, setCallFilter] = useState('all');
 
     const fileToBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -42,9 +44,93 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
         }
     }, []);
 
+    const fetchCallHistory = useCallback(async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${SERVER_URL}/api/calls/history?limit=30`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            setCallHistory(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error('Failed to fetch call history:', err);
+        }
+    }, []);
+
     useEffect(() => {
         fetchHiddenChats();
-    }, [fetchHiddenChats]);
+        fetchCallHistory();
+    }, [fetchHiddenChats, fetchCallHistory]);
+
+    const formatDuration = (seconds = 0) => {
+        const sec = Number(seconds) || 0;
+        const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+        const ss = String(sec % 60).padStart(2, '0');
+        return `${mm}:${ss}`;
+    };
+
+    const formatTime = (timeValue) => {
+        if (!timeValue) return '-';
+        const date = new Date(timeValue);
+        return date.toLocaleString();
+    };
+
+    const getCallStatusMeta = (status) => {
+        if (status === 'completed') {
+            return { label: 'Completed', classes: 'text-green-700 bg-green-100' };
+        }
+        if (status === 'answered') {
+            return { label: 'Answered', classes: 'text-blue-700 bg-blue-100' };
+        }
+        if (status === 'missed') {
+            return { label: 'Missed', classes: 'text-red-700 bg-red-100' };
+        }
+        return { label: status || 'Unknown', classes: 'text-gray-700 bg-gray-100' };
+    };
+
+    const filteredCallHistory = callHistory.filter((item) => {
+        if (callFilter === 'all') return true;
+        if (callFilter === 'private') return item.call_type === 'private';
+        if (callFilter === 'group') return item.call_type === 'group';
+        if (callFilter === 'missed') return item.status === 'missed';
+        return true;
+    });
+
+    const exportCallHistoryCsv = () => {
+        const rows = filteredCallHistory.map((item) => {
+            const isPrivate = item.call_type === 'private';
+            const peerName = item.caller_id === currentUser.id
+                ? (item.callee_username || 'Unknown')
+                : (item.caller_username || 'Unknown');
+            const title = isPrivate ? `Private call with ${peerName}` : `Group call: ${item.group_name || `Group ${item.group_id}`}`;
+            return [
+                item.id,
+                item.call_type,
+                item.mode || 'audio',
+                item.status,
+                title,
+                item.duration_seconds || 0,
+                formatTime(item.started_at || item.created_at),
+                formatTime(item.ended_at)
+            ];
+        });
+
+        const header = ['id', 'call_type', 'mode', 'status', 'title', 'duration_seconds', 'started_at', 'ended_at'];
+        const csv = [header, ...rows]
+            .map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `call-history-${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     const handleUnhideChat = async (chat) => {
         try {
@@ -243,6 +329,70 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
                         ))
                     ) : (
                         <p className="text-gray-500 text-center py-4">You have no hidden chats.</p>
+                    )}
+                </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-md mt-6">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                    <h2 className="text-xl font-bold">Call History</h2>
+                    <button
+                        type="button"
+                        onClick={exportCallHistoryCsv}
+                        className="px-3 py-1.5 text-sm rounded-md bg-gray-900 text-white hover:bg-black"
+                    >
+                        Export CSV
+                    </button>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                    {[
+                        { key: 'all', label: 'All' },
+                        { key: 'private', label: 'Private' },
+                        { key: 'group', label: 'Group' },
+                        { key: 'missed', label: 'Missed' },
+                    ].map((filter) => (
+                        <button
+                            key={filter.key}
+                            type="button"
+                            onClick={() => setCallFilter(filter.key)}
+                            className={`px-3 py-1.5 text-sm rounded-full border ${
+                                callFilter === filter.key
+                                    ? 'bg-blue-600 border-blue-600 text-white'
+                                    : 'bg-white border-gray-300 text-gray-700'
+                            }`}
+                        >
+                            {filter.label}
+                        </button>
+                    ))}
+                </div>
+                <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {filteredCallHistory.length > 0 ? (
+                        filteredCallHistory.map((item) => {
+                            const isPrivate = item.call_type === 'private';
+                            const peerName = item.caller_id === currentUser.id
+                                ? (item.callee_username || 'Unknown')
+                                : (item.caller_username || 'Unknown');
+                            const title = isPrivate ? `Private call with ${peerName}` : `Group call: ${item.group_name || `Group ${item.group_id}`}`;
+                            const statusMeta = getCallStatusMeta(item.status);
+                            return (
+                                <div key={item.id} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="font-semibold text-gray-800">{title}</p>
+                                        <span className={`text-xs font-bold uppercase px-2 py-1 rounded-full ${statusMeta.classes}`}>
+                                            {statusMeta.label}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {formatTime(item.started_at || item.created_at)}
+                                    </p>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        Duration: {formatDuration(item.duration_seconds)}
+                                    </p>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <p className="text-gray-500 text-center py-4">No call history for this filter.</p>
                     )}
                 </div>
             </div>
