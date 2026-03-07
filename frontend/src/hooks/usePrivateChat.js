@@ -147,15 +147,30 @@ export const usePrivateChat = (peerUsername, socket, currentUser, keyPair, peerK
         }
     }, [peerUser, peerPublicKey, keyPair, currentUser, replyingToMessage, setMessages, setIsUploading, setReplyingToMessage, sendPrivateMessageViaApi]);
 
-    const handleUnsendMessage = useCallback((message) => {
-        if (socket && peerUser) {
-            socket.emit('unsend_message', {
-                messageId: message.id,
-                chatType: 'private',
-                targetId: peerUser.id
+    const handleUnsendMessage = useCallback(async (message) => {
+        if (!peerUser) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${SERVER_URL}/api/chat/private/unsend`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ messageId: message.id, peerUserId: peerUser.id })
             });
+
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.message || 'Failed to unsend message.');
+
+            setMessages(prev => prev.map(m => (
+                String(m.id) === String(message.id)
+                    ? { ...m, is_unsent: 1, text: '', decryptedText: 'This message was unsent', fileInfo: null }
+                    : m
+            )));
+        } catch (error) {
+            console.error('Failed to unsend private message:', error);
+            alert(error.message || 'Failed to unsend message.');
         }
-    }, [socket, peerUser]);
+    }, [peerUser, setMessages]);
 
     const handleBlockUser = useCallback(async (userIdToBlock) => {
         const isBlocking = friendship?.status === 'blocked' && friendship.action_user_id === currentUser.id;

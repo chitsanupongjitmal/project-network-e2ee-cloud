@@ -223,7 +223,7 @@ router.get('/:groupId/messages', authenticateToken, async (req, res) => {
     try {
         const { groupId } = req.params;
         const [messages] = await db.query(
-            `SELECT gm.id, gm.sender_id, gm.message_text as text, gm.timestamp, gm.message_type, u.username as sender, u.avatar_url as senderAvatar, gm.reply_to_message_id, replied.message_text as replied_text, replied.message_type as replied_type, u_replied.username as replied_sender FROM group_messages gm JOIN users u ON gm.sender_id = u.id LEFT JOIN group_messages replied ON gm.reply_to_message_id = replied.id LEFT JOIN users u_replied ON replied.sender_id = u_replied.id WHERE gm.group_id = ? ORDER BY gm.timestamp ASC`, 
+            `SELECT gm.id, gm.sender_id, gm.message_text as text, gm.timestamp, gm.message_type, gm.is_unsent, u.username as sender, u.avatar_url as senderAvatar, gm.reply_to_message_id, replied.message_text as replied_text, replied.message_type as replied_type, u_replied.username as replied_sender FROM group_messages gm JOIN users u ON gm.sender_id = u.id LEFT JOIN group_messages replied ON gm.reply_to_message_id = replied.id LEFT JOIN users u_replied ON replied.sender_id = u_replied.id WHERE gm.group_id = ? ORDER BY gm.timestamp ASC`,
             [groupId]
         );
         const processedMessages = messages.map(msg => {
@@ -237,6 +237,49 @@ router.get('/:groupId/messages', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error("Get group messages error:", error);
         res.status(500).json({ message: 'Server error' });
+    }
+});
+
+router.put('/:groupId/messages/:messageId/unsend', authenticateToken, async (req, res) => {
+    try {
+        const { groupId, messageId } = req.params;
+        const senderId = req.user.id;
+
+        const [membership] = await db.query(
+            "SELECT status FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1",
+            [groupId, senderId]
+        );
+        if (!membership.length || membership[0].status !== 'accepted') {
+            return res.status(403).json({ message: 'You are not an accepted member of this group.' });
+        }
+
+        const [result] = await db.query(
+            'UPDATE group_messages SET is_unsent = 1, message_text = "" WHERE id = ? AND group_id = ? AND sender_id = ?',
+            [messageId, groupId, senderId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Message not found or cannot be unsent.' });
+        }
+
+        const payload = { messageId: Number(messageId), chatType: 'group', targetId: Number(groupId) };
+
+        if (req.io) {
+            req.io.to(`group_${groupId}`).emit('message_unsent', payload);
+
+            const [memberRows] = await db.query(
+                'SELECT user_id FROM group_members WHERE group_id = ? AND status = "accepted"',
+                [groupId]
+            );
+            memberRows.forEach(({ user_id }) => {
+                req.io.to(String(user_id)).emit('message_unsent', payload);
+            });
+        }
+
+        return res.json({ message: 'Message unsent successfully.' });
+    } catch (error) {
+        console.error('Unsend group message (REST) error:', error);
+        return res.status(500).json({ message: 'Server error' });
     }
 });
 

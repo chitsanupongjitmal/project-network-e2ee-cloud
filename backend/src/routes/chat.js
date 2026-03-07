@@ -70,6 +70,44 @@ router.post('/private/send', authenticateToken, async (req, res) => {
     }
 });
 
+router.put('/private/unsend', authenticateToken, async (req, res) => {
+    try {
+        const senderId = req.user.id;
+        const { messageId, peerUserId } = req.body;
+
+        if (!messageId || !peerUserId) {
+            return res.status(400).json({ message: 'messageId and peerUserId are required.' });
+        }
+
+        const [result] = await db.query(
+            'UPDATE private_messages SET is_unsent = 1, message_text = "" WHERE id = ? AND sender_id = ? AND receiver_id = ?',
+            [messageId, senderId, peerUserId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Message not found or cannot be unsent.' });
+        }
+
+        const payload = {
+            messageId: Number(messageId),
+            chatType: 'private',
+            conversationParticipants: [Number(senderId), Number(peerUserId)]
+        };
+
+        if (req.io) {
+            req.io.to(String(senderId)).emit('message_unsent', payload);
+            req.io.to(String(peerUserId)).emit('message_unsent', payload);
+            req.io.to(String(senderId)).emit('refresh conversations');
+            req.io.to(String(peerUserId)).emit('refresh conversations');
+        }
+
+        return res.json({ message: 'Message unsent successfully.' });
+    } catch (error) {
+        console.error('Unsend private message (REST) error:', error);
+        return res.status(500).json({ message: 'Server error' });
+    }
+});
+
 router.post('/upload-encrypted-file', authenticateToken, async (req, res) => {
     try {
         const { fileData, originalName, mimeType } = req.body;

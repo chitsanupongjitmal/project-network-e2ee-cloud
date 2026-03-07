@@ -58,6 +58,15 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
         }
         return payload;
     }, [groupId]);
+
+    const fetchGroupMessages = useCallback(async () => {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${SERVER_URL}/api/groups/${groupId}/messages`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to fetch group messages.');
+        return response.json();
+    }, [groupId]);
     
     const { 
         localStream, remoteStreams, isCallActive, incomingCall,
@@ -274,6 +283,43 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
     }, [socket, groupId, navigate, fetchData, currentUser.id]);
 
     useEffect(() => {
+        if (socket?.connected) return;
+        let cancelled = false;
+
+        const syncMessages = async () => {
+            try {
+                const serverMessages = await fetchGroupMessages();
+                if (cancelled) return;
+
+                setMessages(prev => {
+                    const tempMessages = prev.filter(m => m.isTemp);
+                    const mergedServer = serverMessages.map((serverMsg) => {
+                        const localMatch = prev.find(localMsg => String(localMsg.id) === String(serverMsg.id));
+                        return localMatch ? { ...localMatch, ...serverMsg, isTemp: false } : serverMsg;
+                    });
+
+                    const pendingTemps = tempMessages.filter((tmp) => (
+                        !mergedServer.some((serverMsg) => (
+                            tmp.client_id && serverMsg.client_id && String(tmp.client_id) === String(serverMsg.client_id)
+                        ))
+                    ));
+
+                    return [...mergedServer, ...pendingTemps];
+                });
+            } catch (_error) {
+                // Keep silent here; socket reconnect may recover.
+            }
+        };
+
+        syncMessages();
+        const timer = setInterval(syncMessages, 2500);
+        return () => {
+            cancelled = true;
+            clearInterval(timer);
+        };
+    }, [socket?.connected, fetchGroupMessages]);
+
+    useEffect(() => {
         const container = messagesContainerRef.current;
         if (!container) return;
 
@@ -294,9 +340,26 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
         }
     }, [decryptedMessages]);
 
-    const handleUnsendMessage = (message) => {
-        if (socket) socket.emit('unsend_message', { messageId: message.id, chatType: 'group', targetId: groupId });
-    };
+    const handleUnsendMessage = useCallback(async (message) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${SERVER_URL}/api/groups/${groupId}/messages/${message.id}/unsend`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.message || 'Failed to unsend message.');
+
+            setMessages(prev => prev.map(m => (
+                String(m.id) === String(message.id)
+                    ? { ...m, is_unsent: 1, text: '', decryptedText: 'This message was unsent', fileInfo: null }
+                    : m
+            )));
+        } catch (error) {
+            console.error('Failed to unsend group message:', error);
+            alert(error.message || 'Failed to unsend message.');
+        }
+    }, [groupId]);
 
     const handleSend = async (text, file) => {
         if ((!text.trim() && !file) || !groupKey) return;
