@@ -5,11 +5,27 @@ const db = require('../config/db');
 const authenticateToken = require('../middleware/authenticateToken');
 const crypto = require('crypto');
 const forge = require('node-forge');
+const fs = require('fs');
+const path = require('path');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
+const avatarUploadsDir = path.resolve(__dirname, '../../uploads/avatars');
 
 const PBKDF2_ITERATIONS = 100000; 
+
+if (!fs.existsSync(avatarUploadsDir)) {
+    fs.mkdirSync(avatarUploadsDir, { recursive: true });
+}
+
+const mimeToExtension = (mimeType = '') => {
+    const normalized = String(mimeType).toLowerCase();
+    if (normalized === 'image/jpeg' || normalized === 'image/jpg') return '.jpg';
+    if (normalized === 'image/png') return '.png';
+    if (normalized === 'image/webp') return '.webp';
+    if (normalized === 'image/gif') return '.gif';
+    return '';
+};
 
 const setupCryptoKeys = async (password) => {
     const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', {
@@ -202,6 +218,75 @@ router.put('/settings/display-name', authenticateToken, async (req, res) => {
     } catch (error) { 
         console.error("Update display name error:", error);
         res.status(500).json({ message: 'Server error' });
+    }
+});
+
+router.put('/settings/avatar', authenticateToken, async (req, res) => {
+    try {
+        const { fileData, mimeType, originalName } = req.body;
+        const currentUserId = req.user.id;
+
+        if (!fileData || !mimeType) {
+            return res.status(400).json({ message: 'fileData and mimeType are required.' });
+        }
+
+        if (!String(mimeType).startsWith('image/')) {
+            return res.status(400).json({ message: 'Only image files are allowed.' });
+        }
+
+        const fileBuffer = Buffer.from(fileData, 'base64');
+        const maxBytes = 5 * 1024 * 1024;
+        if (fileBuffer.length > maxBytes) {
+            return res.status(400).json({ message: 'Image too large. Max size is 5MB.' });
+        }
+
+        const extension = mimeToExtension(mimeType) || path.extname(originalName || '') || '.png';
+        const filename = `avatar-${currentUserId}-${Date.now()}${extension}`;
+        const filePath = path.join(avatarUploadsDir, filename);
+
+        await fs.promises.writeFile(filePath, fileBuffer);
+        const avatarUrl = `/uploads/avatars/${filename}`;
+
+        const [previousRows] = await db.query('SELECT avatar_url FROM users WHERE id = ? LIMIT 1', [currentUserId]);
+        const previousAvatarUrl = previousRows.length ? previousRows[0].avatar_url : null;
+
+        await db.query('UPDATE users SET avatar_url = ? WHERE id = ?', [avatarUrl, currentUserId]);
+
+        if (previousAvatarUrl && previousAvatarUrl.startsWith('/uploads/avatars/')) {
+            const previousFilename = path.basename(previousAvatarUrl);
+            const previousPath = path.join(avatarUploadsDir, previousFilename);
+            if (previousPath.startsWith(avatarUploadsDir)) {
+                fs.promises.unlink(previousPath).catch(() => {});
+            }
+        }
+
+        if (req.io) {
+            req.io.to(String(currentUserId)).emit('profile updated', { userId: currentUserId, avatar_url: avatarUrl });
+
+            const [friends] = await db.query(
+                `SELECT u.id FROM users u
+                 JOIN friendships f ON (f.user_one_id = u.id OR f.user_two_id = u.id)
+                 WHERE (f.user_one_id = ? OR f.user_two_id = ?)
+                 AND f.status = 'accepted' AND u.id != ?`,
+                [currentUserId, currentUserId, currentUserId]
+            );
+            friends.forEach(({ id }) => {
+                req.io.to(String(id)).emit('refresh conversations');
+                req.io.to(String(id)).emit('profile updated', { userId: currentUserId, avatar_url: avatarUrl });
+            });
+        }
+
+        return res.json({
+            message: 'Profile image updated successfully.',
+            user: {
+                id: currentUserId,
+                username: req.user.username,
+                avatar_url: avatarUrl
+            }
+        });
+    } catch (error) {
+        console.error('Update avatar error:', error);
+        return res.status(500).json({ message: 'Server error' });
     }
 });
 

@@ -6,6 +6,26 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
     const [displayName, setDisplayName] = useState(currentUser.display_name || currentUser.username);
     const [error, setError] = useState('');
     const [hiddenChats, setHiddenChats] = useState([]);
+    const [avatarFile, setAvatarFile] = useState(null);
+    const [avatarPreview, setAvatarPreview] = useState('');
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+    const fileToBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = (err) => reject(err);
+    });
+
+    useEffect(() => {
+        setDisplayName(currentUser.display_name || currentUser.username);
+    }, [currentUser.display_name, currentUser.username]);
+
+    useEffect(() => {
+        return () => {
+            if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+        };
+    }, [avatarPreview]);
 
     const fetchHiddenChats = useCallback(async () => {
         try {
@@ -69,6 +89,60 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
         }
     };
 
+    const handleAvatarChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            setError('Please select an image file.');
+            return;
+        }
+        const maxBytes = 5 * 1024 * 1024;
+        if (file.size > maxBytes) {
+            setError('Image too large. Max size is 5MB.');
+            return;
+        }
+        setError('');
+        setAvatarFile(file);
+        const url = URL.createObjectURL(file);
+        setAvatarPreview((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return url;
+        });
+    };
+
+    const handleUploadAvatar = async () => {
+        if (!avatarFile) return;
+        setError('');
+        setIsUploadingAvatar(true);
+        try {
+            const token = localStorage.getItem('token');
+            const fileData = await fileToBase64(avatarFile);
+            const response = await fetch(`${SERVER_URL}/api/settings/avatar`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    fileData,
+                    mimeType: avatarFile.type,
+                    originalName: avatarFile.name
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Failed to upload avatar.');
+
+            onSettingsChange({ avatar_url: data.user.avatar_url });
+            alert('Profile picture updated successfully!');
+            setAvatarFile(null);
+            setAvatarPreview((prev) => {
+                if (prev) URL.revokeObjectURL(prev);
+                return '';
+            });
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setIsUploadingAvatar(false);
+        }
+    };
+
     const RoleDisplay = ({ role }) => {
         if (!role) return null;
         const displayRole = role.charAt(0).toUpperCase() + role.slice(1);
@@ -95,10 +169,28 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
                 {error && <p className="text-red-500 bg-red-100 p-3 rounded-md mb-4">{error}</p>}
                 
                 <div className="flex flex-col items-center mb-4">
-                    <Avatar user={currentUser} size="w-32 h-32" />
-                    <p className="mt-2 text-sm text-gray-500 text-center">
-                        Profile pictures use the system default avatar.
-                    </p>
+                    <Avatar user={{ ...currentUser, avatar_url: avatarPreview || currentUser.avatar_url }} size="w-32 h-32" />
+                    <div className="mt-3 flex flex-col items-center gap-2">
+                        <label className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm cursor-pointer">
+                            Choose Profile Image
+                            <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleAvatarChange}
+                                disabled={isUploadingAvatar}
+                            />
+                        </label>
+                        <button
+                            type="button"
+                            onClick={handleUploadAvatar}
+                            disabled={!avatarFile || isUploadingAvatar}
+                            className="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600 disabled:bg-gray-400"
+                        >
+                            {isUploadingAvatar ? 'Uploading...' : 'Save Image'}
+                        </button>
+                        <p className="text-xs text-gray-500 text-center">JPG, PNG, WEBP, GIF (max 5MB)</p>
+                    </div>
                 </div>
 
                 <RoleDisplay role={currentUser.role} />

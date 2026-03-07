@@ -3,6 +3,7 @@
     { "source": "/api/ws", "destination": "http://43.210.20.189/api/ws" },
     { "source": "/api/ws/", "destination": "http://43.210.20.189/api/ws/" },
     { "source": "/api/ws/:path*", "destination": "http://43.210.20.189/api/ws/:path*" },
+    { "source": "/uploads/:path*", "destination": "http://43.210.20.189/uploads/:path*" },
     { "source": "/ws", "destination": "http://43.210.20.189/ws" },
     { "source": "/ws/:path*", "destination": "http://43.210.20.189/ws/:path*" },
     { "source": "/socket.io", "destination": "http://43.210.20.189/socket.io" },

@@ -38,15 +38,23 @@ const ProfilePage = ({ currentUser, socket }) => {
     
     const handleRequestSent = () => fetchProfile();
     const handleRequestAccepted = () => fetchProfile();
+    const handleProfileUpdated = ({ userId }) => {
+      if (!userId || !profile?.user?.id) return;
+      if (Number(userId) === Number(profile.user.id)) {
+        fetchProfile();
+      }
+    };
 
     socket.on('friend request sent', handleRequestSent);
     socket.on('friend request accepted', handleRequestAccepted);
+    socket.on('profile updated', handleProfileUpdated);
 
     return () => {
         socket.off('friend request sent', handleRequestSent);
         socket.off('friend request accepted', handleRequestAccepted);
+        socket.off('profile updated', handleProfileUpdated);
     }
-  }, [fetchProfile, socket]);
+  }, [fetchProfile, socket, profile?.user?.id]);
 
   const handleFriendAction = async (action, targetUserId) => {
     if (action === 'add') {
@@ -263,7 +271,6 @@ const ProfilePage = ({ currentUser, socket }) => {
 };
 
 export default ProfilePage;
-
 
 
 

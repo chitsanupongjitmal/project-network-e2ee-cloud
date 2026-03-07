@@ -58,11 +58,13 @@ const FriendsPage = ({ socket, setHasNewFriendRequest }) => {
     socket.on('new friend request', handleNewData);
     socket.on('friend request accepted', handleNewData);
     socket.on('friend response success', handleNewData);
+    socket.on('profile updated', handleNewData);
 
     return () => {
         socket.off('new friend request', handleNewData);
         socket.off('friend request accepted', handleNewData);
         socket.off('friend response success', handleNewData);
+        socket.off('profile updated', handleNewData);
     };
   }, [fetchData, socket]);
   
