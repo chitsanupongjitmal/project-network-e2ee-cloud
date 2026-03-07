@@ -188,7 +188,7 @@ const ProfilePage = ({ currentUser, socket }) => {
 
 
   return (
-    <div className="max-w-3xl mx-auto p-4 font-sans">
+    <div className="max-w-3xl mx-auto p-4 pb-24 sm:pb-6 font-sans h-full overflow-y-auto">
       <div className="bg-white text-gray-900 p-6 rounded-lg shadow-md mb-6">
           <div className="flex items-center gap-6">
               <div className="relative">
@@ -279,4 +279,3 @@ const ProfilePage = ({ currentUser, socket }) => {
 };
 
 export default ProfilePage;
-
