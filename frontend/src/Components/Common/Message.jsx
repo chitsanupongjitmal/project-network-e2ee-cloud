@@ -2,6 +2,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getRoleMeta } from '../../utils/roleLabels';
 
+const formatCallDuration = (totalSeconds) => {
+    const seconds = Math.max(0, Number(totalSeconds) || 0);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainSeconds = seconds % 60;
+
+    if (hours > 0) {
+        return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+    }
+    return `${minutes}m ${String(remainSeconds).padStart(2, '0')}s`;
+};
+
+const getCallSummaryLabel = (rawText) => {
+    if (!rawText) return 'Call ended';
+    if (typeof rawText !== 'string') return 'Call ended';
+
+    try {
+        const parsed = JSON.parse(rawText);
+        if (!parsed || typeof parsed !== 'object') return 'Call ended';
+        if (parsed.status === 'missed') return 'Missed call';
+
+        const modeLabel = parsed.mode === 'video' ? 'Video call ended' : 'Call ended';
+        const durationLabel = formatCallDuration(parsed.durationSeconds);
+        return `${modeLabel} • ${durationLabel}`;
+    } catch (_error) {
+        return rawText;
+    }
+};
+
 
 const SecureImage = ({ fileInfo, conversationType, conversationId, onImageClick }) => {
     const [imageUrl, setImageUrl] = useState(null);
@@ -247,6 +276,8 @@ const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, 
     const senderIdentifier = msg.sender_id ?? msg.senderId ?? msg.sender?.id ?? msg.user_id ?? msg.userId ?? null;
     const currentUserId = currentUser?.id ?? null;
     const isSender = currentUserId !== null && senderIdentifier !== null && String(senderIdentifier) === String(currentUserId);
+    const messageType = msg.type || msg.message_type;
+    const isCallSummary = messageType === 'call_summary';
     const participantInfo = isGroupChat && groupMemberMap ? groupMemberMap[senderIdentifier] : null;
 
     const senderDisplayName = isSender
@@ -316,7 +347,7 @@ const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, 
 
     const handleContextMenu = (e) => {
         e.preventDefault();
-        if (msg.isTemp || msg.is_unsent) return;
+        if (msg.isTemp || msg.is_unsent || isCallSummary) return;
         setIsMenuOpen(true);
     };
 
@@ -328,9 +359,6 @@ const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, 
         const privateConversationId = isSender ? derivedPeerIdentifier : (senderIdentifier ?? derivedPeerIdentifier);
         const conversationId = isGroupChat ? groupConversationId : privateConversationId;
         const hasSecureContext = Boolean(conversationType && conversationId);
-
-
-        const messageType = msg.type || msg.message_type;
 
 
         if (messageType?.includes('image') && msg.fileInfo?.url) {
@@ -414,6 +442,18 @@ const Message = ({ msg, currentUser, onImageClick, onUnsendMessage, onSetReply, 
         ? timestampDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : '';
     const shouldShowMeta = !msg.is_unsent && (formattedTimestamp || isSender);
+
+    if (isCallSummary) {
+        const callSummaryLabel = getCallSummaryLabel(msg.text ?? msg.decryptedText);
+        return (
+            <div className="flex justify-center my-3">
+                <div className="bg-gray-100 text-gray-600 text-xs px-3 py-1.5 rounded-full border border-gray-200">
+                    <span>{callSummaryLabel}</span>
+                    {formattedTimestamp ? <span className="ml-2 text-gray-500">({formattedTimestamp})</span> : null}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div onContextMenu={handleContextMenu} className="relative group">

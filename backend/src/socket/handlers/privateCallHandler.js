@@ -1,8 +1,51 @@
 
 const db = require('../../config/db');
-const { userSockets } = require('../state');
+const { userSockets, activePrivateCalls } = require('../state');
 
 module.exports = (io, socket) => {
+    const buildCallSummaryText = ({ mode, status, durationSeconds }) => JSON.stringify({
+        event: 'call_ended',
+        mode: mode || 'audio',
+        status: status || 'completed',
+        durationSeconds: Number(durationSeconds) || 0,
+        endedAt: new Date().toISOString(),
+    });
+
+    const emitPrivateCallSummary = async ({ senderId, receiverId, senderUsername, mode, status, durationSeconds }) => {
+        try {
+            const summaryText = buildCallSummaryText({ mode, status, durationSeconds });
+            const [result] = await db.query(
+                `INSERT INTO private_messages (sender_id, receiver_id, message_text, message_type, receiver_key_version, reply_to_message_id)
+                 VALUES (?, ?, ?, 'call_summary', NULL, NULL)`,
+                [senderId, receiverId, summaryText]
+            );
+
+            const messageData = {
+                id: result.insertId,
+                senderId,
+                sender: senderUsername,
+                receiverId,
+                text: summaryText,
+                type: 'call_summary',
+                timestamp: new Date().toISOString(),
+            };
+
+            const senderSocketId = getSocketIdByUserId(senderId);
+            const receiverSocketId = getSocketIdByUserId(receiverId);
+
+            if (senderSocketId) {
+                io.to(senderSocketId).emit('private message', messageData);
+                io.to(senderSocketId).emit('refresh conversations');
+            }
+            if (receiverSocketId) {
+                io.to(receiverSocketId).emit('private message', messageData);
+                io.to(receiverSocketId).emit('refresh conversations');
+            }
+        } catch (error) {
+            console.error('Failed to save private call summary message:', error);
+        }
+    };
+
     const getSocketIdByUserId = (userId) => {
         return (
             userSockets.get(userId) ||
@@ -93,6 +136,26 @@ module.exports = (io, socket) => {
         const isAllowed = await ensureCallAllowed(callerId, targetId);
         if (!isAllowed) return;
 
+        let callHistoryId = null;
+        try {
+            const [result] = await db.query(
+                `INSERT INTO call_history (call_type, mode, caller_id, callee_id, status)
+                 VALUES ('private', ?, ?, ?, 'ringing')`,
+                [callType || 'audio', callerId, targetId]
+            );
+            callHistoryId = result.insertId;
+            const callKey = `${Math.min(callerId, targetId)}:${Math.max(callerId, targetId)}`;
+            activePrivateCalls.set(callKey, {
+                id: callHistoryId,
+                callerId,
+                calleeId: targetId,
+                answeredAt: null,
+                mode: callType || 'audio',
+            });
+        } catch (error) {
+            console.error('Failed to save private call start history:', error);
+        }
+
         const receiverSocketId = getSocketIdByUserId(targetId);
         if (receiverSocketId) {
             io.to(receiverSocketId).emit('call-made', {
@@ -101,7 +164,8 @@ module.exports = (io, socket) => {
                 callerUsername: socket.user.username,
                 callerAvatarUrl: socket.user.avatar_url || null,
                 callType,
-                callerHasVideo: !!callerHasVideo
+                callerHasVideo: !!callerHasVideo,
+                callHistoryId
             });
         }
     };
@@ -121,6 +185,23 @@ module.exports = (io, socket) => {
         const isAllowed = await ensureCallAllowed(responderId, targetId);
         if (!isAllowed) return;
 
+        const callKey = `${Math.min(responderId, targetId)}:${Math.max(responderId, targetId)}`;
+        const activeCall = activePrivateCalls.get(callKey);
+        if (activeCall?.id) {
+            try {
+                await db.query(
+                    `UPDATE call_history
+                     SET status = 'answered', started_at = NOW()
+                     WHERE id = ?`,
+                    [activeCall.id]
+                );
+                activeCall.answeredAt = new Date();
+                activePrivateCalls.set(callKey, activeCall);
+            } catch (error) {
+                console.error('Failed to mark private call as answered:', error);
+            }
+        }
+
         const callerSocketId = getSocketIdByUserId(targetId);
         if (callerSocketId) {
             io.to(callerSocketId).emit('answer-made', { answer, hasVideo });
@@ -136,10 +217,42 @@ module.exports = (io, socket) => {
     };
 
 
-    const handleEndCall = ({ to }) => {
-        const peerSocketId = getSocketIdByUserId(to);
+    const handleEndCall = async ({ to }) => {
+        const fromUserId = Number(socket.user.id);
+        const peerId = Number(to);
+        const peerSocketId = getSocketIdByUserId(peerId);
         if (peerSocketId) {
             io.to(peerSocketId).emit('call-ended');
+        }
+
+        const callKey = `${Math.min(fromUserId, peerId)}:${Math.max(fromUserId, peerId)}`;
+        const activeCall = activePrivateCalls.get(callKey);
+        if (activeCall?.id) {
+            const wasAnswered = !!activeCall.answeredAt;
+            const status = wasAnswered ? 'completed' : 'missed';
+            const durationSeconds = wasAnswered
+                ? Math.max(0, Math.floor((Date.now() - new Date(activeCall.answeredAt).getTime()) / 1000))
+                : 0;
+
+            await db.query(
+                `UPDATE call_history
+                 SET status = ?, ended_at = NOW(), duration_seconds = ?
+                 WHERE id = ?`,
+                [status, durationSeconds, activeCall.id]
+            ).catch((error) => {
+                console.error('Failed to finalize private call history:', error);
+            });
+
+            activePrivateCalls.delete(callKey);
+
+            await emitPrivateCallSummary({
+                senderId: fromUserId,
+                receiverId: peerId,
+                senderUsername: socket.user.username,
+                mode: activeCall.mode || 'audio',
+                status,
+                durationSeconds,
+            });
         }
     };
 

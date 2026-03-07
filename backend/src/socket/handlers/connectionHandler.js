@@ -1,6 +1,6 @@
 
 const db = require('../../config/db');
-const { userSockets, activeGroupCalls } = require('../state');
+const { userSockets, activeGroupCalls, activeGroupCallMeta } = require('../state');
 
 const getFriends = async (userId) => {
     const [friends] = await db.query(
@@ -23,6 +23,44 @@ const getVisibleOnlineFriends = async (userId) => {
         }
     }
     return onlineFriendIds;
+};
+
+const buildGroupCallSummaryText = ({ mode, durationSeconds }) => JSON.stringify({
+    event: 'call_ended',
+    mode: mode || 'audio',
+    status: 'completed',
+    durationSeconds: Number(durationSeconds) || 0,
+    endedAt: new Date().toISOString(),
+});
+
+const emitGroupCallSummary = async (io, { groupId, senderId, senderUsername, senderAvatar, durationSeconds, mode }) => {
+    try {
+        const summaryText = buildGroupCallSummaryText({ mode, durationSeconds });
+        const [insertResult] = await db.query(
+            `INSERT INTO group_messages (group_id, sender_id, message_text, message_type, reply_to_message_id)
+             VALUES (?, ?, ?, 'call_summary', NULL)`,
+            [groupId, senderId, summaryText]
+        );
+
+        const messageData = {
+            id: insertResult.insertId,
+            text: summaryText,
+            message_type: 'call_summary',
+            sender_id: senderId,
+            sender: senderUsername,
+            senderAvatar: senderAvatar || null,
+            group_id: groupId,
+            timestamp: new Date().toISOString(),
+            reply_to_message_id: null,
+            client_id: null,
+            repliedTo: null,
+        };
+
+        io.to(`group_${groupId}`).emit('group message', messageData);
+        io.to(`group_${groupId}`).emit('refresh conversations');
+    } catch (error) {
+        console.error('Failed to save group call summary message on disconnect:', error);
+    }
 };
 
 
@@ -120,6 +158,32 @@ module.exports = (io, socket) => {
                     if (members.size === 0) {
                         activeGroupCalls.delete(groupId);
                         io.to(`group_${groupId}`).emit('group-call-ended', { groupId });
+                        const callMeta = activeGroupCallMeta.get(groupId);
+                        if (callMeta?.historyId) {
+                            const durationSeconds = callMeta.startedAt
+                                ? Math.max(0, Math.floor((Date.now() - new Date(callMeta.startedAt).getTime()) / 1000))
+                                : 0;
+                            db.query(
+                                `UPDATE call_history
+                                 SET status = 'completed', ended_at = NOW(), duration_seconds = ?
+                                 WHERE id = ?`,
+                                [durationSeconds, callMeta.historyId]
+                            ).catch((error) => {
+                                console.error('Failed to finalize group call history on disconnect:', error);
+                            });
+
+                            emitGroupCallSummary(io, {
+                                groupId: Number(groupId),
+                                senderId: Number(socket.user.id),
+                                senderUsername: socket.user.username,
+                                senderAvatar: socket.user.avatar_url || null,
+                                durationSeconds,
+                                mode: callMeta.mode || 'audio',
+                            }).catch((summaryError) => {
+                                console.error('Failed to emit group call summary on disconnect:', summaryError);
+                            });
+                        }
+                        activeGroupCallMeta.delete(groupId);
                     } else {
                         io.to(`group_${groupId}`).emit('member-left-call', { groupId, userId: socket.user.id });
                         broadcastParticipantsUpdate(io, groupId);
