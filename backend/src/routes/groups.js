@@ -240,6 +240,77 @@ router.get('/:groupId/messages', authenticateToken, async (req, res) => {
     }
 });
 
+router.post('/:groupId/messages', authenticateToken, async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const senderId = req.user.id;
+        const {
+            content,
+            type = 'encrypted_text',
+            replyToMessageId = null,
+            client_id = null
+        } = req.body;
+
+        if (!content || !String(content).trim()) {
+            return res.status(400).json({ message: 'Message content is required.' });
+        }
+
+        const [membership] = await db.query(
+            "SELECT status FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1",
+            [groupId, senderId]
+        );
+
+        if (!membership.length || membership[0].status !== 'accepted') {
+            return res.status(403).json({ message: 'You are not an accepted member of this group.' });
+        }
+
+        const [result] = await db.query(
+            'INSERT INTO group_messages (group_id, sender_id, message_text, message_type, reply_to_message_id) VALUES (?, ?, ?, ?, ?)',
+            [groupId, senderId, content, type, replyToMessageId || null]
+        );
+
+        const messageData = {
+            id: result.insertId,
+            text: content,
+            message_type: type,
+            sender_id: senderId,
+            sender: req.user.username,
+            senderAvatar: req.user.avatar_url || null,
+            group_id: Number(groupId),
+            timestamp: new Date(),
+            reply_to_message_id: replyToMessageId,
+            client_id,
+            repliedTo: null
+        };
+
+        if (replyToMessageId) {
+            const [repliedMessages] = await db.query(
+                `SELECT 
+                    gm.message_text as text,
+                    gm.message_type,
+                    u.username as sender
+                 FROM group_messages gm
+                 JOIN users u ON gm.sender_id = u.id
+                 WHERE gm.id = ?`,
+                [replyToMessageId]
+            );
+            if (repliedMessages.length > 0) {
+                messageData.repliedTo = repliedMessages[0];
+            }
+        }
+
+        if (req.io) {
+            req.io.to(`group_${groupId}`).emit('group message', messageData);
+            req.io.to(`group_${groupId}`).emit('refresh conversations');
+        }
+
+        return res.status(201).json(messageData);
+    } catch (error) {
+        console.error('Send group message (REST) error:', error);
+        return res.status(500).json({ message: 'Server error' });
+    }
+});
+
 router.put('/:groupId/theme', authenticateToken, async (req, res) => {
     try {
         const { groupId } = req.params;

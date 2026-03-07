@@ -44,6 +44,20 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
     const [replyingToMessage, setReplyingToMessage] = useState(null);
     const [errorMessage, setErrorMessage] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
+
+    const sendGroupMessageViaApi = useCallback(async ({ content, type, replyToMessageId, client_id }) => {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${SERVER_URL}/api/groups/${groupId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ content, type, replyToMessageId, client_id }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.message || 'Failed to send group message.');
+        }
+        return payload;
+    }, [groupId]);
     
     const { 
         localStream, remoteStreams, isCallActive, incomingCall,
@@ -285,7 +299,7 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
     };
 
     const handleSend = async (text, file) => {
-        if ((!text.trim() && !file) || !socket || !groupKey) return;
+        if ((!text.trim() && !file) || !groupKey) return;
 
         const client_id = `temp-${Date.now()}`;
         const tempReplyData = replyingToMessage ? {
@@ -331,10 +345,17 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
                 const payload = { url: uploadResult.url, fileName: file.name, mimeType: file.type, caption: text };
                 const encryptedContent = await encryptWithGroupKey(JSON.stringify(payload), groupKey);
 
-                socket.emit('group message', { 
-                    content: encryptedContent, groupId, type: messageType,
-                    replyToMessageId: replyingToMessage?.id, client_id: client_id
+                const savedMessage = await sendGroupMessageViaApi({
+                    content: encryptedContent,
+                    type: messageType,
+                    replyToMessageId: replyingToMessage?.id || null,
+                    client_id
                 });
+
+                setMessages(prev => prev.map(m => (
+                    m.id === client_id ? { ...savedMessage, isTemp: false, fileInfo: m.fileInfo, repliedTo: m.repliedTo } : m
+                )));
+
             } catch (err) {
                 console.error("Failed to send group file:", err);
                 setMessages(prev => prev.filter(m => m.id !== client_id));
@@ -348,12 +369,21 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
                 const encryptedContent = await encryptWithGroupKey(text, groupKey);
                 const tempMessage = { ...baseTempMessage, decryptedText: text, message_type: 'encrypted_text' };
                 setMessages(prev => [...prev, tempMessage]);
-                socket.emit('group message', { 
-                    content: encryptedContent, groupId, type: 'encrypted_text',
-                    replyToMessageId: replyingToMessage?.id, client_id: client_id
+
+                const savedMessage = await sendGroupMessageViaApi({
+                    content: encryptedContent,
+                    type: 'encrypted_text',
+                    replyToMessageId: replyingToMessage?.id || null,
+                    client_id
                 });
+
+                setMessages(prev => prev.map(m => (
+                    m.id === client_id ? { ...savedMessage, isTemp: false, repliedTo: m.repliedTo } : m
+                )));
+
             } catch (e) {
-                console.error("Failed to encrypt group message:", e);
+                console.error("Failed to send group message:", e);
+                setMessages(prev => prev.filter(m => m.id !== client_id));
             } finally {
                 setReplyingToMessage(null);
             }
