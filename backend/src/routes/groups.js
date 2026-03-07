@@ -300,6 +300,28 @@ router.post('/:groupId/messages', authenticateToken, async (req, res) => {
         }
 
         if (req.io) {
+            const sentSocketIds = new Set();
+            const sendToSocketId = (socketId) => {
+                if (!socketId || sentSocketIds.has(socketId)) return;
+                req.io.to(socketId).emit('group message', messageData);
+                req.io.to(socketId).emit('refresh conversations');
+                sentSocketIds.add(socketId);
+            };
+
+            // Always notify sender socket immediately.
+            sendToSocketId(userSockets.get(Number(senderId)));
+
+            // Notify accepted members directly by their active socket.
+            const [memberRows] = await db.query(
+                'SELECT user_id FROM group_members WHERE group_id = ? AND status = "accepted"',
+                [groupId]
+            );
+            memberRows.forEach(({ user_id }) => {
+                const memberSocketId = userSockets.get(Number(user_id));
+                sendToSocketId(memberSocketId);
+            });
+
+            // Fallback: also emit to room for any sockets already joined there.
             req.io.to(`group_${groupId}`).emit('group message', messageData);
             req.io.to(`group_${groupId}`).emit('refresh conversations');
         }

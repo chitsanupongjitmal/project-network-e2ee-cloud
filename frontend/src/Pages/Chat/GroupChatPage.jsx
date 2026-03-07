@@ -217,7 +217,7 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
         const handleGroupMessage = (newMessage) => {
             if (String(newMessage.group_id) === String(groupId)) {
                 setMessages(prev => {
-                    if (newMessage.sender_id === currentUser.id && newMessage.client_id) {
+                    if (String(newMessage.sender_id) === String(currentUser.id) && newMessage.client_id) {
                         const tempMessageExists = prev.some(m => m.id === newMessage.client_id);
                         if (tempMessageExists) {
                             return prev.map(m => (m.id === newMessage.client_id ? { ...newMessage, isTemp: false } : m));
