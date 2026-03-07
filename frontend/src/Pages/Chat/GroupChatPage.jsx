@@ -24,7 +24,7 @@ const fileToBase64 = (file) => new Promise((resolve, reject) => {
 });
 
 
-const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decryptedGroupKeys }) => {
+const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decryptedGroupKeys, themeMode = 'light' }) => {
     const { groupId } = useParams();
     const navigate = useNavigate();
     const [groupInfo, setGroupInfo] = useState(null);
@@ -44,6 +44,7 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
     const [replyingToMessage, setReplyingToMessage] = useState(null);
     const [errorMessage, setErrorMessage] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
+    const isDark = themeMode === 'dark';
 
     const sendGroupMessageViaApi = useCallback(async ({ content, type, replyToMessageId, client_id }) => {
         const token = localStorage.getItem('token');
@@ -154,6 +155,17 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
     useEffect(() => {
         fetchData();
     }, [groupId, fetchData]);
+
+    useEffect(() => {
+        const pendingGroupCallId = localStorage.getItem('pendingGroupCallGroupId');
+        if (!pendingGroupCallId) return;
+        if (String(pendingGroupCallId) !== String(groupId)) return;
+
+        localStorage.removeItem('pendingGroupCallGroupId');
+        setTimeout(() => {
+            joinCall();
+        }, 300);
+    }, [groupId, joinCall]);
     
     useEffect(() => {
         if (!groupKey) {
@@ -519,11 +531,11 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
         )
     };
 
-    if (isLoading || !groupInfo) return <div className="flex items-center justify-center h-full"><p>Loading group chat...</p></div>;
+    if (isLoading || !groupInfo) return <div className={`flex items-center justify-center h-full ${isDark ? 'bg-black text-white' : ''}`}><p>Loading group chat...</p></div>;
     if (errorMessage) return (
-        <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-50">
+        <div className={`flex flex-col items-center justify-center h-full p-8 text-center ${isDark ? 'bg-black' : 'bg-gray-50'}`}>
             <p className="text-red-500 text-xl font-bold mb-4">Access Error</p>
-            <p className="text-gray-700 mb-6">{errorMessage}</p>
+            <p className={`${isDark ? 'text-gray-200' : 'text-gray-700'} mb-6`}>{errorMessage}</p>
             <button onClick={() => navigate('/')} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Go to Chats List</button>
         </div>
     );
@@ -544,14 +556,14 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
                     participantMuteMap={participantMuteMap}
                 />
             )}
-            <div className="flex flex-col h-full bg-white">
-                <header className="bg-white shadow-sm p-3 border-b flex-shrink-0">
+            <div className={`flex flex-col h-full ${isDark ? 'bg-black' : 'bg-white'}`}>
+                <header className={`${isDark ? 'bg-black border-gray-800' : 'bg-white'} shadow-sm p-3 border-b flex-shrink-0`}>
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
                             <Avatar user={{ username: groupInfo.name, avatar_url: groupInfo.avatar_url }} size="w-10 h-10" />
                             <div>
-                                <h1 className="text-xl font-bold">{groupInfo.name}</h1>
-                                <p className="text-xs text-gray-500 flex items-center gap-1">
+                                <h1 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{groupInfo.name}</h1>
+                                <p className={`text-xs flex items-center gap-1 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
                                     <LockIcon className="h-4 w-4 text-green-500" />
                                     <span>{groupInfo.members.length} member{groupInfo.members.length === 1 ? '' : 's'}</span>
                                 </p>
@@ -562,7 +574,7 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
                                 type="button"
                                 onClick={() => startCall()}
                                 title="Start Audio Call"
-                                className="p-1 text-gray-500 hover:text-blue-500 transition-colors"
+                                className={`p-1 transition-colors ${isDark ? 'text-gray-300 hover:text-blue-400' : 'text-gray-500 hover:text-blue-500'}`}
                             >
                                 <PhoneIcon />
                             </button>
@@ -573,7 +585,7 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
                                         setIsMenuOpen(prev => !prev);
                                         setIsThemeMenuOpen(false);
                                     }}
-                                    className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                                    className={`p-1 rounded-full transition-colors ${isDark ? 'hover:bg-gray-900' : 'hover:bg-gray-100'}`}
                                 >
                                     <MoreVerticalIcon />
                                 </button>
@@ -619,11 +631,11 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
     </header>
 
                 {groupInfo?.members?.length > 0 && (
-                    <div className="px-4 py-2 bg-white border-b flex flex-wrap gap-2 text-xs text-gray-600">
+                    <div className={`px-4 py-2 border-b flex flex-wrap gap-2 text-xs ${isDark ? 'bg-black border-gray-800 text-gray-300' : 'bg-white text-gray-600'}`}>
                         {groupInfo.members.map(member => {
                             const roleMeta = getRoleMeta(member.role);
                             return (
-                                <span key={member.id} className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full">
+                                <span key={member.id} className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
                                     <span className="font-semibold">{member.username}</span>
                                     {roleMeta && (
                                         <span className={`px-2 py-0.5 rounded-full ${roleMeta.classes}`}>
@@ -654,6 +666,7 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
                                 onSetReply={setReplyingToMessage}
                                 isGroupChat={true}
                                 groupMemberMap={groupMemberMap}
+                                themeMode={themeMode}
                             />
                         );
                     })}
@@ -663,6 +676,7 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
                     onSend={handleSend} 
                     replyingTo={replyingToMessage} 
                     onCancelReply={() => setReplyingToMessage(null)}
+                    themeMode={themeMode}
                     isInputDisabled={isUploading}
                 />
                 {isSettingsOpen && (

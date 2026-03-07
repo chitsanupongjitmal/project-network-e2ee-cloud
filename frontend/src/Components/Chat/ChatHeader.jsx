@@ -6,7 +6,7 @@ import { SERVER_URL } from '../../config';
 import { MoreVerticalIcon, LockIcon, UnlockIcon, PhoneIcon } from '../Common/Icons';
 import ThemeMenu from '../Modals/ThemeMenu';
 
-const ChatHeader = ({ chatPartner, onBlockUser, onAudioCall, onDataChanged, isBlockingPeer, isBlocked, onChangeTheme }) => {
+const ChatHeader = ({ chatPartner, onBlockUser, onAudioCall, onDataChanged, isBlockingPeer, isBlocked, onChangeTheme, themeMode = 'light' }) => {
     
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
@@ -73,7 +73,8 @@ const ChatHeader = ({ chatPartner, onBlockUser, onAudioCall, onDataChanged, isBl
         }
     };
 
-    if (!chatPartner) return <header className="bg-white shadow-sm p-3 border-b h-[68px] flex-shrink-0"></header>;
+    const isDark = themeMode === 'dark';
+    if (!chatPartner) return <header className={`shadow-sm p-3 border-b h-[68px] flex-shrink-0 ${isDark ? 'bg-black border-gray-800' : 'bg-white'}`}></header>;
 
     const nickname = chatPartner.nickname || null;
     const displayName = chatPartner.display_name || null;
@@ -91,15 +92,15 @@ const ChatHeader = ({ chatPartner, onBlockUser, onAudioCall, onDataChanged, isBl
     const secondaryLine = secondaryPieces.filter(Boolean).join(' \u2022 ');
     
     return (
-        <header className="bg-white shadow-sm p-3 border-b flex-shrink-0">
+        <header className={`shadow-sm p-3 border-b flex-shrink-0 ${isDark ? 'bg-black border-gray-800' : 'bg-white'}`}>
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <Link to={`/profile/${chatPartner.username}`} className="flex items-center gap-3 cursor-pointer p-1 rounded-lg hover:bg-gray-100">
+                    <Link to={`/profile/${chatPartner.username}`} className={`flex items-center gap-3 cursor-pointer p-1 rounded-lg ${isDark ? 'hover:bg-gray-900' : 'hover:bg-gray-100'}`}>
                         <Avatar user={chatPartner} size="w-10 h-10" />
                         <div>
-                            <h1 className="text-xl font-bold">{primaryName}</h1>
+                            <h1 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{primaryName}</h1>
                             {secondaryLine && (
-                                <p className="text-xs text-gray-500">{secondaryLine}</p>
+                                <p className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>{secondaryLine}</p>
                             )}
                             <p className="text-xs text-green-500 flex items-center mt-0.5"><LockIcon className="h-4 w-4 text-green-500" /> <span className="ml-1">Secure Chat</span></p>
                         </div>
@@ -111,7 +112,7 @@ const ChatHeader = ({ chatPartner, onBlockUser, onAudioCall, onDataChanged, isBl
                         type="button"
                         onClick={onAudioCall}
                         title={isBlocked ? "Cannot call a blocked user" : "Start Audio Call"}
-                        className={`p-1 ${isBlocked ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-blue-500'}`}
+                        className={`p-1 ${isBlocked ? 'text-gray-300 cursor-not-allowed' : (isDark ? 'text-gray-300 hover:text-blue-400' : 'text-gray-500 hover:text-blue-500')}`}
                         disabled={isBlocked}
                     >
                         <PhoneIcon />
@@ -124,7 +125,7 @@ const ChatHeader = ({ chatPartner, onBlockUser, onAudioCall, onDataChanged, isBl
                                 setIsMenuOpen(prev => !prev);
                                 if (isMenuOpen) setIsThemeMenuOpen(false);
                             }}
-                            className="p-1 rounded-full hover:bg-gray-100"
+                            className={`p-1 rounded-full ${isDark ? 'hover:bg-gray-900' : 'hover:bg-gray-100'}`}
                         >
                             <MoreVerticalIcon />
                         </button>

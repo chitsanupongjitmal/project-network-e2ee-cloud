@@ -245,11 +245,12 @@ const App = () => {
                         socket={socket} 
                         currentUser={user} 
                         keyPair={keyPair} 
+                        themeMode={themeMode}
                         peerKeyVersions={peerKeyVersions}
                         callUser={callUser}
                     />} 
                 />
-                <Route path="group/:groupId" element={<GroupChatPage socket={socket} currentUser={user} keyPair={keyPair} onKeyDecrypted={handleKeyDecrypted} decryptedGroupKeys={decryptedGroupKeys} />} />
+                <Route path="group/:groupId" element={<GroupChatPage socket={socket} currentUser={user} keyPair={keyPair} themeMode={themeMode} onKeyDecrypted={handleKeyDecrypted} decryptedGroupKeys={decryptedGroupKeys} />} />
                 <Route path="feed" element={<FeedPage />} />
                 <Route path="friends" element={<FriendsPage socket={socket} setHasNewFriendRequest={setHasNewFriendRequest} />} />
                 <Route path="search" element={<SearchPage />} />

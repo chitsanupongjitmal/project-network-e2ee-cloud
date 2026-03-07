@@ -29,7 +29,7 @@ const ReplyPreview = ({ message, onCancel }) => {
 
 
 
-const MessageInput = ({ onSend, onTyping, replyingTo, onCancelReply, isInputDisabled }) => {
+const MessageInput = ({ onSend, onTyping, replyingTo, onCancelReply, isInputDisabled, themeMode = 'light' }) => {
     const [text, setText] = useState('');
     const [filesToSend, setFilesToSend] = useState([]);
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -110,10 +110,10 @@ const MessageInput = ({ onSend, onTyping, replyingTo, onCancelReply, isInputDisa
             setFilesToSend(prevFiles => [...prevFiles, file]);
         }
     };
-
+    const isDark = themeMode === 'dark';
 
     return (
-        <div className="bg-white p-3 border-t flex-shrink-0">
+        <div className={`p-3 border-t flex-shrink-0 ${isDark ? 'bg-black border-gray-800' : 'bg-white'}`}>
             <ReplyPreview message={replyingTo} onCancel={onCancelReply} />
 
             {}
@@ -138,16 +138,16 @@ const MessageInput = ({ onSend, onTyping, replyingTo, onCancelReply, isInputDisa
             <form onSubmit={handleSubmit} className="flex items-center gap-3">
                 <div className="relative" ref={emojiContainerRef}>
                     {isEmojiPickerOpen && <EmojiPicker onSelectEmoji={handleSelectEmoji} />}
-                    <button type="button" onClick={() => setIsEmojiPickerOpen(prev => !prev)} className="text-gray-500 hover:text-gray-700 p-1"> <EmojiIcon /> </button>
+                    <button type="button" onClick={() => setIsEmojiPickerOpen(prev => !prev)} className={`p-1 ${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-700'}`}> <EmojiIcon /> </button>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" multiple />
-                <button type="button" onClick={() => fileInputRef.current.click()} className="text-gray-500 hover:text-gray-700 p-1">
+                <button type="button" onClick={() => fileInputRef.current.click()} className={`p-1 ${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-700'}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                 </button>
                 <input
                     type="text" value={text} onChange={handleTypingChange} onPaste={handlePaste}
                     placeholder={isInputDisabled ? "Uploading..." : (filesToSend.length > 0 ? "Add a caption..." : "Type a message...")}
-                    className="flex-1 px-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`flex-1 px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-900 text-white placeholder:text-gray-400' : 'bg-gray-100'}`}
                     onFocus={() => setIsEmojiPickerOpen(false)}
                     disabled={isInputDisabled}
                 />

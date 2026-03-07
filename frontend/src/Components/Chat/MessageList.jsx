@@ -12,8 +12,10 @@ const MessageList = ({
     peerUser,
     isGroupChat = false,
     groupMemberMap,
-    backgroundStyle
+    backgroundStyle,
+    themeMode = 'light'
 }) => {
+    const isDark = themeMode === 'dark';
     const containerRef = useRef(null);
     const messagesEndRef = useRef(null);
     const shouldAutoScrollRef = useRef(true);
@@ -56,12 +58,13 @@ const MessageList = ({
                     onSetReply={onSetReply}
                     isGroupChat={isGroupChat}
                     groupMemberMap={groupMemberMap}
+                    themeMode={themeMode}
                 />
             ))}
 
             {isPeerTyping && (
                 <div className="flex justify-start mb-4">
-                    <div className="px-4 py-2 rounded-xl bg-gray-200 text-gray-800 rounded-bl-none">
+                    <div className={`px-4 py-2 rounded-xl rounded-bl-none ${isDark ? 'bg-gray-800 text-gray-100' : 'bg-gray-200 text-gray-800'}`}>
                         <p className="text-sm italic">is typing...</p>
                     </div>
                 </div>

@@ -22,7 +22,7 @@ const SessionResetNotification = ({ onReset }) => (
 );
 
 
-const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUser }) => { 
+const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUser, themeMode = 'light' }) => { 
 
     const { username: peerUsername } = useParams();
     const [viewingImage, setViewingImage] = useState(null);
@@ -101,12 +101,15 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
         }
     };
 
+    const isDark = themeMode === 'dark';
+
     return (
-        <div className="flex flex-col flex-1 h-full max-h-screen overflow-y-hidden bg-white">
+        <div className={`flex flex-col flex-1 h-full max-h-screen overflow-y-hidden ${isDark ? 'bg-black' : 'bg-white'}`}>
             {isSessionOutOfSync && <SessionResetNotification onReset={fetchData} />}
 
             <ChatHeader 
                 chatPartner={peerUser} 
+                themeMode={themeMode}
                 onBlockUser={() => handleBlockUser(peerUser.id)}
                 onAudioCall={startAudioCall}
                 onDataChanged={fetchData}
@@ -123,12 +126,13 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
                 onImageClick={(src) => setViewingImage(src)}
                 onUnsendMessage={handleUnsendMessage}
                 onSetReply={setReplyingToMessage}
+                themeMode={themeMode}
                 backgroundStyle={chatThemes[currentTheme]?.style || chatThemes.default.style}
             />
             
-            <div className="w-full bg-white p-2 border-t">
+            <div className={`w-full p-2 border-t ${isDark ? 'bg-black border-gray-800' : 'bg-white'}`}>
                  {(isBlockedByMe || hasBlockedMe) ? (
-                    <div className="p-4 text-center text-gray-500">
+                    <div className={`p-4 text-center ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
                         {isBlockedByMe
                             ? `You have blocked ${peerUsername}.`
                             : `คุณถูกบล็อคโดย ${peerUsername} ไม่สามารถส่งข้อความ โทร หรือบล็อคกลับได้`}
@@ -139,6 +143,7 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
                         onTyping={handleTyping}
                         replyingTo={replyingToMessage}
                         onCancelReply={() => setReplyingToMessage(null)}
+                        themeMode={themeMode}
                         isInputDisabled={isUploading}
                     />
                 )}
