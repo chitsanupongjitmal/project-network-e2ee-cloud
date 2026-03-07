@@ -46,6 +46,7 @@ DROP TABLE IF EXISTS `groups`;
 CREATE TABLE IF NOT EXISTS `groups` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
+  `avatar_url` varchar(255) DEFAULT NULL,
   `creator_id` int(11) NOT NULL,
   `chat_theme` varchar(255) DEFAULT 'default',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),

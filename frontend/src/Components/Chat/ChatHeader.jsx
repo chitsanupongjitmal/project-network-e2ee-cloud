@@ -4,10 +4,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import Avatar from '../Common/Avatar';
 import { SERVER_URL } from '../../config';
 import { MoreVerticalIcon, LockIcon, UnlockIcon, PhoneIcon } from '../Common/Icons';
+import ThemeMenu from '../Modals/ThemeMenu';
 
-const ChatHeader = ({ chatPartner, onBlockUser, onAudioCall, onDataChanged, isBlockingPeer, isBlocked }) => {
+const ChatHeader = ({ chatPartner, onBlockUser, onAudioCall, onDataChanged, isBlockingPeer, isBlocked, onChangeTheme }) => {
     
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
     const menuRef = useRef(null);
     const isBlockedByPeer = isBlocked && !isBlockingPeer;
     const navigate = useNavigate();
@@ -16,6 +18,7 @@ const ChatHeader = ({ chatPartner, onBlockUser, onAudioCall, onDataChanged, isBl
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
                 setIsMenuOpen(false);
+                setIsThemeMenuOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -117,34 +120,64 @@ const ChatHeader = ({ chatPartner, onBlockUser, onAudioCall, onDataChanged, isBl
                     <div className="relative" ref={menuRef}> 
                         <button
                             type="button"
-                            onClick={() => setIsMenuOpen(prev => !prev)}
+                            onClick={() => {
+                                setIsMenuOpen(prev => !prev);
+                                if (isMenuOpen) setIsThemeMenuOpen(false);
+                            }}
                             className="p-1 rounded-full hover:bg-gray-100"
                         >
                             <MoreVerticalIcon />
                         </button>
                         {isMenuOpen && (
                             <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border py-1">
-                                <ul>
-                                    <li><button onClick={() => { handleSetNickname(); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Set Nickname</button></li>
-                                    <li><Link to={`/profile/${chatPartner.username}`} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">View Profile</Link></li>
-                                    <li><button onClick={handleHideChat} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Hide Chat</button></li>
-                                    <li>
-                                        {isBlockedByPeer ? (
-                                            <div className="w-full flex items-start gap-2 px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
-                                                <LockIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                                <span>คุณถูกบล็อค ไม่สามารถบล็อคกลับได้</span>
-                                            </div>
-                                        ) : (
+                                {isThemeMenuOpen ? (
+                                    <ThemeMenu
+                                        onSelectTheme={async (themeKey) => {
+                                            try {
+                                                if (onChangeTheme) await onChangeTheme(themeKey);
+                                            } catch (error) {
+                                                alert(error.message || 'Failed to update theme.');
+                                            } finally {
+                                                setIsThemeMenuOpen(false);
+                                                setIsMenuOpen(false);
+                                            }
+                                        }}
+                                        onClose={() => {
+                                            setIsThemeMenuOpen(false);
+                                            setIsMenuOpen(false);
+                                        }}
+                                    />
+                                ) : (
+                                    <ul>
+                                        <li>
                                             <button
-                                                onClick={() => { onBlockUser(); setIsMenuOpen(false); }}
-                                                className={`w-full flex items-center gap-2 text-left px-4 py-2 text-sm ${isBlockingPeer ? 'text-green-600 hover:bg-green-50' : 'text-red-600 hover:bg-red-50'}`}
+                                                onClick={() => setIsThemeMenuOpen(true)}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                             >
-                                                {isBlockingPeer ? <UnlockIcon className="h-4 w-4 text-green-600" /> : <LockIcon className="h-4 w-4 text-red-600" />}
-                                                {isBlockingPeer ? `Unblock ${chatPartner.username}` : `Block ${chatPartner.username}`}
+                                                Change Theme
                                             </button>
-                                        )}
-                                    </li>
-                                </ul>
+                                        </li>
+                                        <li><button onClick={() => { handleSetNickname(); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Set Nickname</button></li>
+                                        <li><Link to={`/profile/${chatPartner.username}`} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">View Profile</Link></li>
+                                        <li><button onClick={handleHideChat} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Hide Chat</button></li>
+                                        <li>
+                                            {isBlockedByPeer ? (
+                                                <div className="w-full flex items-start gap-2 px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
+                                                    <LockIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                                    <span>คุณถูกบล็อค ไม่สามารถบล็อคกลับได้</span>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => { onBlockUser(); setIsMenuOpen(false); }}
+                                                    className={`w-full flex items-center gap-2 text-left px-4 py-2 text-sm ${isBlockingPeer ? 'text-green-600 hover:bg-green-50' : 'text-red-600 hover:bg-red-50'}`}
+                                                >
+                                                    {isBlockingPeer ? <UnlockIcon className="h-4 w-4 text-green-600" /> : <LockIcon className="h-4 w-4 text-red-600" />}
+                                                    {isBlockingPeer ? `Unblock ${chatPartner.username}` : `Block ${chatPartner.username}`}
+                                                </button>
+                                            )}
+                                        </li>
+                                    </ul>
+                                )}
                             </div>
                         )}
                     </div>

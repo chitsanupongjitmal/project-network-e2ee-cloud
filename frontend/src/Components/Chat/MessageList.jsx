@@ -11,7 +11,8 @@ const MessageList = ({
     onSetReply,
     peerUser,
     isGroupChat = false,
-    groupMemberMap
+    groupMemberMap,
+    backgroundStyle
 }) => {
     const containerRef = useRef(null);
     const messagesEndRef = useRef(null);
@@ -39,7 +40,11 @@ const MessageList = ({
     }, [messages, isPeerTyping]);
 
     return (
-        <main ref={containerRef} className="flex-1 p-4 overflow-y-auto bg-gray-50 custom-scrollbar">
+        <main
+            ref={containerRef}
+            className="flex-1 p-4 overflow-y-auto custom-scrollbar"
+            style={backgroundStyle || { background: '#F9FAFB' }}
+        >
             {messages.map((msg) => (
                 <Message
                     key={msg.id}

@@ -1,13 +1,64 @@
 
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const db = require('../config/db');
 const authenticateToken = require('../middleware/authenticateToken');
 const { userSockets } = require('../socket/state'); 
 const router = express.Router();
 
 const GROUP_MANAGER_ROLES = new Set(['group-admin', 'super-admin']);
+const groupAvatarUploadsDir = path.resolve(__dirname, '../../uploads/group_avatars');
 
 const ensureGroupManager = (role) => GROUP_MANAGER_ROLES.has(role);
+
+if (!fs.existsSync(groupAvatarUploadsDir)) {
+    fs.mkdirSync(groupAvatarUploadsDir, { recursive: true });
+}
+
+const mimeToExtension = (mimeType = '') => {
+    if (mimeType === 'image/png') return '.png';
+    if (mimeType === 'image/jpeg') return '.jpg';
+    if (mimeType === 'image/webp') return '.webp';
+    if (mimeType === 'image/gif') return '.gif';
+    return '.png';
+};
+
+const emitToAcceptedGroupMembers = async (io, groupId, eventName, payload) => {
+    const [memberRows] = await db.query(
+        'SELECT user_id FROM group_members WHERE group_id = ? AND status = "accepted"',
+        [groupId]
+    );
+
+    const notifiedSocketIds = new Set();
+    memberRows.forEach(({ user_id }) => {
+        const memberSocketId = userSockets.get(Number(user_id));
+        if (memberSocketId && !notifiedSocketIds.has(memberSocketId)) {
+            io.to(memberSocketId).emit(eventName, payload);
+            notifiedSocketIds.add(memberSocketId);
+        }
+    });
+
+    const roomName = `group_${groupId}`;
+    const room = io.sockets?.adapter?.rooms?.get(roomName);
+    if (room) {
+        room.forEach((socketId) => {
+            if (!notifiedSocketIds.has(socketId)) {
+                io.to(socketId).emit(eventName, payload);
+            }
+        });
+    } else {
+        io.to(roomName).emit(eventName, payload);
+    }
+};
+
+const isAcceptedGroupMember = async (groupId, userId) => {
+    const [rows] = await db.query(
+        'SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ? AND status = "accepted" LIMIT 1',
+        [groupId, userId]
+    );
+    return rows.length > 0;
+};
 
 async function canUserCreateGroup(userId, roleFromToken) {
     if (ensureGroupManager(roleFromToken)) return true;
@@ -88,7 +139,7 @@ router.post('/', authenticateToken, async (req, res) => {
 router.get('/', authenticateToken, async (req, res) => {
     try {
         const [groups] = await db.query(
-            `SELECT g.id, g.name FROM \`groups\` g 
+            `SELECT g.id, g.name, g.avatar_url FROM \`groups\` g 
              JOIN group_members gm ON g.id = gm.group_id 
              WHERE gm.user_id = ? AND gm.status = 'accepted'`,
             [req.user.id]
@@ -166,7 +217,7 @@ router.get('/:groupId', authenticateToken, async (req, res) => {
         const currentUserId = req.user.id;
         
         const [groupInfo] = await db.query(
-            `SELECT g.id, g.name, g.creator_id, g.chat_theme FROM \`groups\` g WHERE g.id = ?`,
+            `SELECT g.id, g.name, g.avatar_url, g.creator_id, g.chat_theme FROM \`groups\` g WHERE g.id = ?`,
             [groupId]
         );
         if (groupInfo.length === 0) return res.status(404).json({ message: 'Group not found.' });
@@ -380,39 +431,17 @@ router.put('/:groupId/theme', authenticateToken, async (req, res) => {
     try {
         const { groupId } = req.params;
         const { theme } = req.body;
+
+        const isMember = await isAcceptedGroupMember(groupId, req.user.id);
+        if (!isMember) {
+            return res.status(403).json({ message: 'Only accepted group members can change theme.' });
+        }
+
         const [result] = await db.query('UPDATE `groups` SET chat_theme = ? WHERE id = ?', [theme, groupId]);
         if (result.affectedRows === 0) return res.status(404).json({ message: "Group not found." });
 
         const payload = { groupId: Number(groupId), newTheme: theme };
-        const [memberRows] = await db.query(
-            'SELECT user_id FROM group_members WHERE group_id = ? AND status = "accepted"',
-            [groupId]
-        );
-
-        const notifiedSocketIds = new Set();
-
-        memberRows.forEach(({ user_id }) => {
-            const memberId = Number(user_id);
-            if (Number.isNaN(memberId)) return;
-            const memberSocketId = userSockets.get(memberId);
-            if (memberSocketId && !notifiedSocketIds.has(memberSocketId)) {
-                req.io.to(memberSocketId).emit('group theme updated', payload);
-                notifiedSocketIds.add(memberSocketId);
-            }
-        });
-
-        const roomName = `group_${groupId}`;
-        const room = req.io.sockets?.adapter?.rooms?.get(roomName);
-        if (room) {
-            room.forEach((socketId) => {
-                if (!notifiedSocketIds.has(socketId)) {
-                    req.io.to(socketId).emit('group theme updated', payload);
-                    notifiedSocketIds.add(socketId);
-                }
-            });
-        } else {
-            req.io.to(roomName).emit('group theme updated', payload);
-        }
+        await emitToAcceptedGroupMembers(req.io, groupId, 'group theme updated', payload);
         res.status(200).json({ message: 'Theme updated successfully.' });
     } catch (error) {
         console.error("Update group theme error:", error);
@@ -425,8 +454,14 @@ router.put('/:groupId/name', authenticateToken, async (req, res) => {
         const { name } = req.body;
         const { groupId } = req.params;
         if (!name) return res.status(400).json({ message: 'New name is required.' });
-        await db.query('UPDATE `groups` SET name = ? WHERE id = ?', [name, groupId]);
-        req.io.to(`group_${groupId}`).emit('group name updated', { groupId, newName: name });
+
+        const isMember = await isAcceptedGroupMember(groupId, req.user.id);
+        if (!isMember) {
+            return res.status(403).json({ message: 'Only accepted group members can rename this group.' });
+        }
+
+        await db.query('UPDATE `groups` SET name = ? WHERE id = ?', [name.trim(), groupId]);
+        await emitToAcceptedGroupMembers(req.io, groupId, 'group name updated', { groupId: Number(groupId), newName: name.trim() });
         res.status(200).json({ message: 'Group name updated.' });
     } catch (error) {
         console.error("Update group name error:", error);
@@ -438,10 +473,9 @@ router.post('/:groupId/members', authenticateToken, async (req, res) => {
     const { members } = req.body;
     const { groupId } = req.params;
     const inviterId = req.user.id;
-    const currentRole = req.user.role;
-
-    if (!ensureGroupManager(currentRole)) {
-        return res.status(403).json({ message: 'Only group administrators can invite members.' });
+    const isMember = await isAcceptedGroupMember(groupId, inviterId);
+    if (!isMember) {
+        return res.status(403).json({ message: 'Only accepted group members can invite users.' });
     }
 
     if (!members || !Array.isArray(members) || members.length === 0) {
@@ -462,6 +496,12 @@ router.post('/:groupId/members', authenticateToken, async (req, res) => {
 
 
         await connection.commit();
+        if (req.io) {
+            members.forEach(({ userId }) => {
+                req.io.to(String(userId)).emit('refresh conversations');
+            });
+            await emitToAcceptedGroupMembers(req.io, groupId, 'group members updated', { groupId: Number(groupId) });
+        }
         res.status(200).json({ message: 'Invitations sent successfully.' });
     } catch (error) {
         await connection.rollback();
@@ -469,6 +509,63 @@ router.post('/:groupId/members', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     } finally {
         connection.release();
+    }
+});
+
+router.put('/:groupId/avatar', authenticateToken, async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { fileData, mimeType, originalName } = req.body;
+
+        const isMember = await isAcceptedGroupMember(groupId, req.user.id);
+        if (!isMember) {
+            return res.status(403).json({ message: 'Only accepted group members can update group image.' });
+        }
+
+        if (!fileData || !mimeType) {
+            return res.status(400).json({ message: 'fileData and mimeType are required.' });
+        }
+        if (!String(mimeType).startsWith('image/')) {
+            return res.status(400).json({ message: 'Only image files are allowed.' });
+        }
+
+        const fileBuffer = Buffer.from(fileData, 'base64');
+        const maxBytes = 5 * 1024 * 1024;
+        if (fileBuffer.length > maxBytes) {
+            return res.status(400).json({ message: 'Image too large. Max size is 5MB.' });
+        }
+
+        const extension = mimeToExtension(mimeType) || path.extname(originalName || '') || '.png';
+        const filename = `group-${groupId}-${Date.now()}${extension}`;
+        const filePath = path.join(groupAvatarUploadsDir, filename);
+        await fs.promises.writeFile(filePath, fileBuffer);
+
+        const avatarUrl = `/uploads/group_avatars/${filename}`;
+        const [previousRows] = await db.query('SELECT avatar_url FROM `groups` WHERE id = ? LIMIT 1', [groupId]);
+        if (!previousRows.length) {
+            return res.status(404).json({ message: 'Group not found.' });
+        }
+        const previousAvatarUrl = previousRows[0].avatar_url;
+
+        await db.query('UPDATE `groups` SET avatar_url = ? WHERE id = ?', [avatarUrl, groupId]);
+
+        if (previousAvatarUrl && previousAvatarUrl.startsWith('/uploads/group_avatars/')) {
+            const previousFilename = path.basename(previousAvatarUrl);
+            const previousPath = path.join(groupAvatarUploadsDir, previousFilename);
+            if (previousPath.startsWith(groupAvatarUploadsDir)) {
+                fs.promises.unlink(previousPath).catch(() => {});
+            }
+        }
+
+        if (req.io) {
+            await emitToAcceptedGroupMembers(req.io, groupId, 'group avatar updated', { groupId: Number(groupId), avatar_url: avatarUrl });
+            await emitToAcceptedGroupMembers(req.io, groupId, 'refresh conversations', { groupId: Number(groupId) });
+        }
+
+        return res.status(200).json({ message: 'Group image updated successfully.', avatar_url: avatarUrl });
+    } catch (error) {
+        console.error('Update group avatar error:', error);
+        return res.status(500).json({ message: 'Server error' });
     }
 });
 

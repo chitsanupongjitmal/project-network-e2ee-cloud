@@ -258,6 +258,14 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
         const handleThemeUpdate = ({ groupId: updatedGroupId, newTheme }) => {
             if (String(updatedGroupId) === String(groupId)) setCurrentTheme(newTheme);
         };
+        const handleAvatarUpdate = ({ groupId: updatedGroupId, avatar_url }) => {
+            if (String(updatedGroupId) === String(groupId)) {
+                setGroupInfo(prev => ({ ...prev, avatar_url }));
+            }
+        };
+        const handleGroupMembersUpdated = ({ groupId: updatedGroupId }) => {
+            if (String(updatedGroupId) === String(groupId)) fetchData();
+        };
         const handleGroupDisbanded = ({ groupId: disbandedGroupId }) => {
             if (String(disbandedGroupId) === String(groupId)) {
                 alert("This group has been disbanded.");
@@ -270,6 +278,8 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
         socket.on('message_unsent', handleMessageUnsent);
         socket.on('group name updated', handleNameUpdate);
         socket.on('group theme updated', handleThemeUpdate);
+        socket.on('group avatar updated', handleAvatarUpdate);
+        socket.on('group members updated', handleGroupMembersUpdated);
         socket.on('group disbanded', handleGroupDisbanded);
 
         return () => {
@@ -278,6 +288,8 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
             socket.off('message_unsent', handleMessageUnsent);
             socket.off('group name updated', handleNameUpdate);
             socket.off('group theme updated', handleThemeUpdate);
+            socket.off('group avatar updated', handleAvatarUpdate);
+            socket.off('group members updated', handleGroupMembersUpdated);
             socket.off('group disbanded', handleGroupDisbanded);
         };
     }, [socket, groupId, navigate, fetchData, currentUser.id]);
@@ -536,7 +548,7 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
                 <header className="bg-white shadow-sm p-3 border-b flex-shrink-0">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                            <Avatar user={{ username: groupInfo.name }} size="w-10 h-10" />
+                            <Avatar user={{ username: groupInfo.name, avatar_url: groupInfo.avatar_url }} size="w-10 h-10" />
                             <div>
                                 <h1 className="text-xl font-bold">{groupInfo.name}</h1>
                                 <p className="text-xs text-gray-500 flex items-center gap-1">
@@ -658,7 +670,6 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
                         groupInfo={groupInfo}
                         onClose={() => setIsSettingsOpen(false)}
                         onDataChanged={fetchData}
-                        currentUser={currentUser}
                         groupKey={groupKey}
                         keyPair={keyPair}
                         canManageGroup={canManageGroup}

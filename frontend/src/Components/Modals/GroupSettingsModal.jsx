@@ -3,21 +3,21 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SERVER_URL } from '../../config';
 import { encryptGroupKey, pemToDer } from '../../utils/keyManager';
+import defaultAvatar from '../../assets/default-avatar.svg';
 
-const GroupSettingsModal = ({ groupInfo, onClose, onDataChanged, groupKey, keyPair, currentUser, canManageGroup = false }) => {
+const GroupSettingsModal = ({ groupInfo, onClose, onDataChanged, groupKey, keyPair, canManageGroup = false }) => {
     const [groupName, setGroupName] = useState(groupInfo.name);
     const [friends, setFriends] = useState([]);
     const [selectedFriends, setSelectedFriends] = useState(new Set());
+    const [avatarFile, setAvatarFile] = useState(null);
+    const [avatarPreview, setAvatarPreview] = useState(groupInfo.avatar_url ? `${SERVER_URL}${groupInfo.avatar_url}` : defaultAvatar);
+    const [isSavingAvatar, setIsSavingAvatar] = useState(false);
     const navigate = useNavigate();
     
     const creator = groupInfo.members.find(m => m.id === groupInfo.creator_id);
     const creatorName = creator ? creator.username : 'Unknown';
 
     useEffect(() => {
-        if (!canManageGroup) {
-            setFriends([]);
-            return;
-        }
         const fetchFriends = async () => {
             const token = localStorage.getItem('token');
             const res = await fetch(`${SERVER_URL}/api/friends`, { headers: { 'Authorization': `Bearer ${token}` }});
@@ -27,7 +27,17 @@ const GroupSettingsModal = ({ groupInfo, onClose, onDataChanged, groupKey, keyPa
             setFriends(friendsToInvite);
         };
         fetchFriends();
-    }, [groupInfo.members, canManageGroup]);
+    }, [groupInfo.members]);
+
+    useEffect(() => {
+        if (!avatarFile) {
+            setAvatarPreview(groupInfo.avatar_url ? `${SERVER_URL}${groupInfo.avatar_url}` : defaultAvatar);
+            return;
+        }
+        const objectUrl = URL.createObjectURL(avatarFile);
+        setAvatarPreview(objectUrl);
+        return () => URL.revokeObjectURL(objectUrl);
+    }, [avatarFile, groupInfo.avatar_url]);
 
     const handleSelectFriend = (friendId) => {
         const newSelection = new Set(selectedFriends);
@@ -37,7 +47,6 @@ const GroupSettingsModal = ({ groupInfo, onClose, onDataChanged, groupKey, keyPa
     };
 
     const handleNameChange = async () => {
-        if (!canManageGroup) return;
         if (groupName.trim() === groupInfo.name || !groupName.trim()) return;
         try {
             const token = localStorage.getItem('token');
@@ -49,12 +58,53 @@ const GroupSettingsModal = ({ groupInfo, onClose, onDataChanged, groupKey, keyPa
             onDataChanged();
         } catch (error) { console.error("Failed to change name", error); }
     };
-    
-    const handleInviteMembers = async () => {
-        if (!canManageGroup) {
-            alert('You do not have permission to invite members.');
+
+    const handleSelectAvatar = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            alert('Please choose an image file only.');
             return;
         }
+        setAvatarFile(file);
+    };
+
+    const handleSaveAvatar = async () => {
+        if (!avatarFile) return;
+        setIsSavingAvatar(true);
+        try {
+            const reader = new FileReader();
+            const fileData = await new Promise((resolve, reject) => {
+                reader.onload = () => resolve(String(reader.result).split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(avatarFile);
+            });
+
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${SERVER_URL}/api/groups/${groupInfo.id}/avatar`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    fileData,
+                    mimeType: avatarFile.type,
+                    originalName: avatarFile.name
+                })
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload.message || 'Failed to update group image.');
+            }
+            setAvatarFile(null);
+            onDataChanged();
+        } catch (error) {
+            console.error("Failed to change group image", error);
+            alert(error.message || 'Could not update group image.');
+        } finally {
+            setIsSavingAvatar(false);
+        }
+    };
+    
+    const handleInviteMembers = async () => {
         if (selectedFriends.size === 0) return;
         if (!groupKey || !keyPair?.privateKey) {
             alert("Cannot invite new members: Encryption keys are not available.");
@@ -131,6 +181,27 @@ const GroupSettingsModal = ({ groupInfo, onClose, onDataChanged, groupKey, keyPa
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-30">
             <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
                 <h2 className="text-2xl font-bold mb-4">Group Settings</h2>
+
+                <div className="mb-4">
+                    <label className="font-semibold block mb-2">Group Image</label>
+                    <div className="flex items-center gap-3">
+                        <img
+                            src={avatarPreview}
+                            alt="group avatar"
+                            className="w-14 h-14 rounded-full object-cover border"
+                        />
+                        <div className="flex flex-col gap-2">
+                            <input type="file" accept="image/*" onChange={handleSelectAvatar} />
+                            <button
+                                onClick={handleSaveAvatar}
+                                disabled={!avatarFile || isSavingAvatar}
+                                className="bg-blue-500 text-white px-3 py-1 rounded disabled:bg-blue-300"
+                            >
+                                {isSavingAvatar ? 'Saving...' : 'Save Image'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 
                 <div className="mb-4">
                     <label className="font-semibold block mb-1">Group Name</label>
@@ -139,16 +210,10 @@ const GroupSettingsModal = ({ groupInfo, onClose, onDataChanged, groupKey, keyPa
                             type="text"
                             value={groupName}
                             onChange={(e) => setGroupName(e.target.value)}
-                            className={`flex-1 p-2 border rounded ${canManageGroup ? '' : 'bg-gray-100 text-gray-500 cursor-not-allowed'}`}
-                            disabled={!canManageGroup}
+                            className="flex-1 p-2 border rounded"
                         />
-                        {canManageGroup && (
-                            <button onClick={handleNameChange} className="bg-blue-500 text-white px-3 rounded">Save</button>
-                        )}
+                        <button onClick={handleNameChange} className="bg-blue-500 text-white px-3 rounded">Save</button>
                     </div>
-                    {!canManageGroup && (
-                        <p className="text-xs text-gray-500 mt-1">Only group administrators can rename the group.</p>
-                    )}
                 </div>
 
                 <div className="mb-4">
@@ -161,25 +226,21 @@ const GroupSettingsModal = ({ groupInfo, onClose, onDataChanged, groupKey, keyPa
                     </p>
                 </div>
 
-                {canManageGroup ? (
-                    friends.length > 0 ? (
-                        <div className="mb-4">
-                            <label className="font-semibold block mb-1">Invite More Friends</label>
-                            <div className="max-h-32 overflow-y-auto border rounded p-2">
-                                {friends.map(friend => (
-                                    <div key={friend.id} className="flex items-center gap-2 p-1">
-                                        <input type="checkbox" id={`add-${friend.id}`} checked={selectedFriends.has(friend.id)} onChange={() => handleSelectFriend(friend.id)} />
-                                        <label htmlFor={`add-${friend.id}`}>{friend.username}</label>
-                                    </div>
-                                ))}
-                            </div>
-                            <button onClick={handleInviteMembers} className="bg-green-500 text-white px-3 py-1 rounded mt-2">Invite Selected</button>
+                {friends.length > 0 ? (
+                    <div className="mb-4">
+                        <label className="font-semibold block mb-1">Invite More Friends</label>
+                        <div className="max-h-32 overflow-y-auto border rounded p-2">
+                            {friends.map(friend => (
+                                <div key={friend.id} className="flex items-center gap-2 p-1">
+                                    <input type="checkbox" id={`add-${friend.id}`} checked={selectedFriends.has(friend.id)} onChange={() => handleSelectFriend(friend.id)} />
+                                    <label htmlFor={`add-${friend.id}`}>{friend.username}</label>
+                                </div>
+                            ))}
                         </div>
-                    ) : (
-                        <p className="text-sm text-gray-500 mt-4">All of your friends are already in this group.</p>
-                    )
+                        <button onClick={handleInviteMembers} className="bg-green-500 text-white px-3 py-1 rounded mt-2">Invite Selected</button>
+                    </div>
                 ) : (
-                    <p className="text-sm text-gray-500 mt-4">You do not have permission to invite new members.</p>
+                    <p className="text-sm text-gray-500 mt-4">All of your friends are already in this group.</p>
                 )}
                 
                 <div className="mt-6 pt-4 border-t">

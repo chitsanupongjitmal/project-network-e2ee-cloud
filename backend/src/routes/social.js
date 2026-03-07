@@ -333,20 +333,26 @@ router.put('/friends/theme', authenticateToken, async (req, res) => {
         const userTwoId = Math.max(currentUserId, friendId);
 
         const [result] = await db.query(
-            `UPDATE friendships SET chat_theme = ? WHERE user_one_id = ? AND user_two_id = ?`,
+            `UPDATE friendships SET chat_theme = ? WHERE user_one_id = ? AND user_two_id = ? AND status = 'accepted'`,
             [theme, userOneId, userTwoId]
         );
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Friendship not found." });
+            return res.status(404).json({ message: "Accepted friendship not found." });
         }
         
 
 
 
         if (req.io) {
-            const currentUserIdStr = req.user.id.toString();
+            const currentUserIdStr = String(currentUserId);
+            const friendIdStr = String(friendId);
+            const payload = { userOneId, userTwoId, theme };
+
+            req.io.to(currentUserIdStr).emit('private theme updated', payload);
+            req.io.to(friendIdStr).emit('private theme updated', payload);
             req.io.to(currentUserIdStr).emit('refresh conversations');
+            req.io.to(friendIdStr).emit('refresh conversations');
         }
 
 

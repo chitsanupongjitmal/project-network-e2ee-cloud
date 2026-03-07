@@ -12,7 +12,7 @@ router.get('/', authenticateToken, async (req, res) => {
     try {
         const baseGroupQuery = `
             SELECT
-                g.id, 'group' AS type, g.name, g.name AS display_name, NULL AS avatar_url, NULL as peerPublicKey,
+                g.id, 'group' AS type, g.name, g.name AS display_name, g.avatar_url AS avatar_url, NULL as peerPublicKey,
                 gm.message_text AS lastMessage, gm.message_type as messageType, gm.timestamp AS lastMessageTimestamp,
                 NULL AS nickname -- เพิ่ม NULL nickname สำหรับ Group
             FROM \`groups\` g

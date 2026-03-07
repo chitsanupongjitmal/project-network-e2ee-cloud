@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { SERVER_URL } from '../config';
 import { encryptMessage } from '../utils/keyManager';
 import { useChatData } from './private-chat/useChatData';
@@ -33,6 +33,42 @@ export const usePrivateChat = (peerUsername, socket, currentUser, keyPair, peerK
     );
 
     const decryptedMessages = useChatEncryption(messages, keyPair, peerPublicKey, peerUser);
+    const [currentTheme, setCurrentTheme] = useState('default');
+
+    useEffect(() => {
+        setCurrentTheme(friendship?.chat_theme || 'default');
+    }, [friendship?.chat_theme]);
+
+    useEffect(() => {
+        if (!socket || !peerUser) return;
+
+        const handlePrivateThemeUpdated = ({ userOneId, userTwoId, theme }) => {
+            const myId = Number(currentUser.id);
+            const peerId = Number(peerUser.id);
+            const isRelated =
+                (Number(userOneId) === Math.min(myId, peerId) && Number(userTwoId) === Math.max(myId, peerId));
+            if (!isRelated) return;
+            setCurrentTheme(theme || 'default');
+        };
+
+        socket.on('private theme updated', handlePrivateThemeUpdated);
+        return () => socket.off('private theme updated', handlePrivateThemeUpdated);
+    }, [socket, currentUser.id, peerUser]);
+
+    const handleThemeChange = useCallback(async (theme) => {
+        if (!peerUser) return;
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${SERVER_URL}/api/friends/theme`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ friendId: peerUser.id, theme }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.message || 'Failed to update theme.');
+        }
+        setCurrentTheme(theme || 'default');
+    }, [peerUser]);
 
     const sendPrivateMessageViaApi = useCallback(async ({ encryptedPayload, toUserId, type, replyToMessageId }) => {
         const token = localStorage.getItem('token');
@@ -206,6 +242,7 @@ export const usePrivateChat = (peerUsername, socket, currentUser, keyPair, peerK
         isLoading, error, peerUser, friendship, decryptedMessages, isPeerTyping,
         peerPublicKey, isSessionOutOfSync, handleSendMessage, handleSendFile,
         handleBlockUser, fetchData, handleUnsendMessage, replyingToMessage,
-        setReplyingToMessage, isPeerOnline, isUploading
+        setReplyingToMessage, isPeerOnline, isUploading,
+        currentTheme, handleThemeChange
     };
 };
