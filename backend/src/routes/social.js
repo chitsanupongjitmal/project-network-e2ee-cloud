@@ -79,7 +79,7 @@ router.get('/users/profile/:username', authenticateToken, async (req, res) => {
             profileUser.nickname = friendship[0].nickname;
         }
 
-        const [posts] = await db.query('SELECT id, content, created_at FROM posts WHERE user_id = ? ORDER BY created_at DESC', [profileUser.id]);
+        const [posts] = await db.query('SELECT id, content, image_url, created_at FROM posts WHERE user_id = ? ORDER BY created_at DESC', [profileUser.id]);
         
         res.json({
             user: profileUser,

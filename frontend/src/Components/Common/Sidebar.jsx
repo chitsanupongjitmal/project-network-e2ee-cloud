@@ -48,7 +48,7 @@ const Sidebar = ({ user, onLogout, hasNewFriendRequest }) => {
   const inactiveLinkStyle = "text-gray-600 hover:bg-gray-100";
 
   return (
-    <aside className="w-20 bg-white border-r flex flex-col items-center py-4 h-screen flex-shrink-0 z-20">
+    <aside className="w-16 sm:w-20 bg-white border-r flex flex-col items-center py-3 sm:py-4 h-[100dvh] flex-shrink-0 z-20">
       <Link to="/" className="mb-8"></Link>
 
       <nav className="flex-1 w-full px-2">

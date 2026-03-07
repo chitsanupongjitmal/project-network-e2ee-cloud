@@ -5,6 +5,13 @@ import { SERVER_URL } from '../../config';
 import Avatar from '../Common/Avatar';
 import { getRoleMeta } from '../../utils/roleLabels';
 
+const resolveImageUrl = (imageUrl) => {
+    if (!imageUrl) return '';
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+    if (imageUrl.startsWith('/')) return `${SERVER_URL}${imageUrl}`;
+    return imageUrl;
+};
+
 const PostItem = ({ post, onPostUpdate }) => {
     const [showComments, setShowComments] = useState(false);
     const [comments, setComments] = useState([]);
@@ -76,7 +83,17 @@ const PostItem = ({ post, onPostUpdate }) => {
             </div>
             {}
 
-            <p className="text-gray-800 mb-4 whitespace-pre-wrap">{post.content}</p>
+            {post.content && (
+                <p className="text-gray-800 mb-4 whitespace-pre-wrap">{post.content}</p>
+            )}
+            {post.image_url && (
+                <img
+                    src={resolveImageUrl(post.image_url)}
+                    alt="Post"
+                    className="w-full max-h-[420px] object-cover rounded-lg mb-4 border"
+                    loading="lazy"
+                />
+            )}
             <div className="flex items-center gap-4 text-gray-500 border-t pt-2">
                 <button onClick={handleLike} className={`flex items-center gap-1 hover:text-blue-500 ${post.liked_by_user ? 'text-blue-500 font-bold' : ''}`}>
                     👍 Like ({post.like_count})

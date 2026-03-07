@@ -2,8 +2,23 @@
 const express = require('express');
 const db = require('../config/db');
 const authenticateToken = require('../middleware/authenticateToken');
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 
+const postUploadsDir = path.resolve(__dirname, '../../uploads/posts');
+if (!fs.existsSync(postUploadsDir)) {
+    fs.mkdirSync(postUploadsDir, { recursive: true });
+}
+
+const mimeToExtension = (mimeType = '') => {
+    const normalized = String(mimeType).toLowerCase();
+    if (normalized === 'image/jpeg' || normalized === 'image/jpg') return '.jpg';
+    if (normalized === 'image/png') return '.png';
+    if (normalized === 'image/webp') return '.webp';
+    if (normalized === 'image/gif') return '.gif';
+    return '';
+};
 
 
 router.get('/feed', authenticateToken, async (req, res) => {
@@ -14,6 +29,7 @@ router.get('/feed', authenticateToken, async (req, res) => {
             `SELECT 
                 p.id,
                 p.content,
+                p.image_url,
                 p.created_at,
                 u.id AS user_id,
                 u.username,
@@ -103,19 +119,61 @@ router.post('/:postId/comments', authenticateToken, async (req, res) => {
 
 router.post('/', authenticateToken, async (req, res) => {
     try {
-        const { content } = req.body;
+        const { content, imageData, imageMimeType, imageOriginalName } = req.body;
         const userId = req.user.id;
+        const normalizedContent = (content || '').trim();
 
-        if (!content || content.trim() === '') {
-            return res.status(400).json({ message: 'Post content cannot be empty.' });
+        let imageUrl = null;
+
+        if (imageData) {
+            if (!imageMimeType || !String(imageMimeType).startsWith('image/')) {
+                return res.status(400).json({ message: 'Invalid image type.' });
+            }
+
+            const fileBuffer = Buffer.from(imageData, 'base64');
+            const maxBytes = 10 * 1024 * 1024;
+            if (fileBuffer.length > maxBytes) {
+                return res.status(400).json({ message: 'Image too large. Max size is 10MB.' });
+            }
+
+            const extension = mimeToExtension(imageMimeType) || path.extname(imageOriginalName || '') || '.jpg';
+            const filename = `post-${userId}-${Date.now()}${extension}`;
+            const filePath = path.join(postUploadsDir, filename);
+            await fs.promises.writeFile(filePath, fileBuffer);
+            imageUrl = `/uploads/posts/${filename}`;
         }
 
-        await db.query(
-            'INSERT INTO posts (user_id, content) VALUES (?, ?)',
-            [userId, content]
+        if (!normalizedContent && !imageUrl) {
+            return res.status(400).json({ message: 'Post must have text or image.' });
+        }
+
+        const [result] = await db.query(
+            'INSERT INTO posts (user_id, content, image_url) VALUES (?, ?, ?)',
+            [userId, normalizedContent, imageUrl]
         );
 
-        res.status(201).json({ message: 'Post created successfully.' });
+        const [createdRows] = await db.query(
+            `SELECT 
+                p.id,
+                p.content,
+                p.image_url,
+                p.created_at,
+                u.id AS user_id,
+                u.username,
+                u.avatar_url,
+                COALESCE(r.name, 'user') AS role
+             FROM posts p
+             JOIN users u ON p.user_id = u.id
+             LEFT JOIN user_roles ur ON u.id = ur.user_id
+             LEFT JOIN roles r ON ur.role_id = r.id
+             WHERE p.id = ? LIMIT 1`,
+            [result.insertId]
+        );
+
+        res.status(201).json({
+            message: 'Post created successfully.',
+            post: createdRows[0] || null
+        });
     } catch (error) {
         console.error("Create post error:", error);
         res.status(500).json({ message: "Server error" });

@@ -24,7 +24,12 @@ npm run start
 mysql -h <RDS_HOST> -P 3306 -u <DB_USER> -p --ssl-mode=REQUIRED < /var/www/project-network-e2ee-cloud/deploy/sql/20260307_add_user_approval_and_group_permission.sql
 ```
 
-5. In `backend/.env` set at least:
+5. Run DB migration for post image support:
+```bash
+mysql -h <RDS_HOST> -P 3306 -u <DB_USER> -p --ssl-mode=REQUIRED < /var/www/project-network-e2ee-cloud/deploy/sql/20260307_add_post_image.sql
+```
+
+6. In `backend/.env` set at least:
 - `NODE_ENV=production`
 - `PORT=4001`
 - `ENABLE_HTTPS=false`
@@ -34,7 +39,7 @@ mysql -h <RDS_HOST> -P 3306 -u <DB_USER> -p --ssl-mode=REQUIRED < /var/www/proje
 - `JWT_SECRET`
 - `SOCKET_IO_PATH=/api/ws`
 
-6. Use PM2 (recommended):
+7. Use PM2 (recommended):
 ```bash
 npm i -g pm2
 pm2 start ecosystem.config.cjs
@@ -101,6 +106,9 @@ server {
 - `VITE_SERVER_URL=` (leave empty when using `frontend/vercel.json` rewrites)
 - `VITE_SOCKET_URL=` (recommended: set to `wss://api.yourdomain.com` for real websocket)
 - `VITE_SOCKET_PATH=/api/ws`
+
+Also keep rewrite for static uploads:
+- `/uploads/:path* -> http://<EC2_PUBLIC_IP>/uploads/:path*`
 
 6. Redeploy.
 

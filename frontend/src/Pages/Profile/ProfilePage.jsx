@@ -254,7 +254,15 @@ const ProfilePage = ({ currentUser, socket }) => {
         {profile.posts.length > 0 ? (
           profile.posts.map(post => (
             <div key={post.id} className="bg-white p-4 rounded-lg shadow-sm">
-              <p className="text-gray-800">{post.content}</p>
+              {post.content && <p className="text-gray-800">{post.content}</p>}
+              {post.image_url && (
+                <img
+                  src={post.image_url.startsWith('/') ? `${SERVER_URL}${post.image_url}` : post.image_url}
+                  alt="Post"
+                  className="w-full max-h-[420px] object-cover rounded-lg mt-3 border"
+                  loading="lazy"
+                />
+              )}
               <p className="text-xs text-gray-400 mt-2 text-right">
                 {new Date(post.created_at).toLocaleString()}
               </p>
@@ -271,6 +279,5 @@ const ProfilePage = ({ currentUser, socket }) => {
 };
 
 export default ProfilePage;
-
 
 

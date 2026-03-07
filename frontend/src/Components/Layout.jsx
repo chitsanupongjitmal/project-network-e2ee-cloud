@@ -14,7 +14,7 @@ const Layout = ({ user, onLogout, hasNewFriendRequest, socket, keyPair, decrypte
 
     return (
 
-        <div className="flex h-screen bg-gray-100 overflow-hidden">
+        <div className="flex h-[100dvh] bg-gray-100 overflow-hidden safe-bottom">
             <Sidebar 
                 user={user}
                 onLogout={onLogout}
