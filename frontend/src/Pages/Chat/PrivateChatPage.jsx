@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { usePrivateChat } from '../../hooks/usePrivateChat';
 
@@ -25,7 +25,6 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
 
     const { username: peerUsername } = useParams();
     const [viewingImage, setViewingImage] = useState(null);
-    const messagesEndRef = useRef(null);
 
     const {
         isLoading,
@@ -99,18 +98,15 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
                 isBlocked={isBlockedByMe || hasBlockedMe}
             />
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-                <MessageList 
-                    messages={decryptedMessages} 
-                    currentUser={currentUser} 
-                    peerUser={peerUser}
-                    isPeerTyping={isPeerTyping}
-                    onImageClick={(src) => setViewingImage(src)}
-                    onUnsendMessage={handleUnsendMessage}
-                    onSetReply={setReplyingToMessage}
-                />
-                <div ref={messagesEndRef} />
-            </div>
+            <MessageList 
+                messages={decryptedMessages} 
+                currentUser={currentUser} 
+                peerUser={peerUser}
+                isPeerTyping={isPeerTyping}
+                onImageClick={(src) => setViewingImage(src)}
+                onUnsendMessage={handleUnsendMessage}
+                onSetReply={setReplyingToMessage}
+            />
             
             <div className="w-full bg-white p-2 border-t">
                  {(isBlockedByMe || hasBlockedMe) ? (
@@ -138,5 +134,4 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
 };
 
 export default PrivateChatPage;
-
 

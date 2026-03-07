@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import Message from '../Common/Message';
 
 const MessageList = ({
@@ -13,14 +13,33 @@ const MessageList = ({
     isGroupChat = false,
     groupMemberMap
 }) => {
+    const containerRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const shouldAutoScrollRef = useRef(true);
+    const SCROLL_BOTTOM_THRESHOLD = 120;
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const container = containerRef.current;
+        if (!container) return;
+
+        const handleScroll = () => {
+            const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+            shouldAutoScrollRef.current = distanceFromBottom <= SCROLL_BOTTOM_THRESHOLD;
+        };
+
+        handleScroll();
+        container.addEventListener('scroll', handleScroll);
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    useLayoutEffect(() => {
+        if (shouldAutoScrollRef.current) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
     }, [messages, isPeerTyping]);
 
     return (
-        <main className="flex-1 p-4 overflow-y-auto bg-gray-50">
+        <main ref={containerRef} className="flex-1 p-4 overflow-y-auto bg-gray-50 custom-scrollbar">
             {messages.map((msg) => (
                 <Message
                     key={msg.id}

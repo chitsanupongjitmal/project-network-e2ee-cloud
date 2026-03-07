@@ -38,7 +38,9 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
     const [groupKey, setGroupKey] = useState(null);
     const [decryptedMessages, setDecryptedMessages] = useState([]);
     const menuRef = useRef(null);
+    const messagesContainerRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const shouldAutoScrollRef = useRef(true);
     const [replyingToMessage, setReplyingToMessage] = useState(null);
     const [errorMessage, setErrorMessage] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -257,8 +259,25 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
         };
     }, [socket, groupId, navigate, fetchData, currentUser.id]);
 
+    useEffect(() => {
+        const container = messagesContainerRef.current;
+        if (!container) return;
+
+        const SCROLL_BOTTOM_THRESHOLD = 120;
+        const handleScroll = () => {
+            const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+            shouldAutoScrollRef.current = distanceFromBottom <= SCROLL_BOTTOM_THRESHOLD;
+        };
+
+        handleScroll();
+        container.addEventListener('scroll', handleScroll);
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, []);
+
     useLayoutEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        if (shouldAutoScrollRef.current) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        }
     }, [decryptedMessages]);
 
     const handleUnsendMessage = (message) => {
@@ -515,7 +534,7 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
                 <IncomingCallNotification />
                 <OngoingCallNotification />
 
-                <main className="flex-1 p-4 overflow-y-auto" style={chatThemes[currentTheme]?.style || chatThemes['default'].style}>
+                <main ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto" style={chatThemes[currentTheme]?.style || chatThemes['default'].style}>
                     {decryptedMessages.map((msg, index) => {
                         if (msg.type === 'system') {
                             return <div key={msg.id || index} className="text-center my-2"><p className="text-xs text-gray-500 bg-gray-200 inline-block px-2 py-1 rounded-full">{msg.text}</p></div>;
@@ -559,4 +578,3 @@ const GroupChatPage = ({ socket, currentUser, keyPair, onKeyDecrypted, decrypted
 };
 
 export default GroupChatPage;
-
