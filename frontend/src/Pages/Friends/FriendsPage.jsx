@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { SERVER_URL } from '../../config';
 import Avatar from '../../Components/Common/Avatar';
 
@@ -18,6 +18,7 @@ const FriendsPage = ({ socket, setHasNewFriendRequest }) => {
   const [groupInvites, setGroupInvites] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('friends');
+  const navigate = useNavigate();
 
   useEffect(() => {
     setHasNewFriendRequest(false);
@@ -118,6 +119,12 @@ const FriendsPage = ({ socket, setHasNewFriendRequest }) => {
       }
   };
 
+  const queueAudioCall = (username) => {
+    if (!username) return;
+    localStorage.setItem('pendingCallUser', username);
+    navigate(`/chat/${username}`);
+  };
+
 
   const TabButton = ({ tabName, label, count }) => (
     <button
@@ -162,6 +169,12 @@ const FriendsPage = ({ socket, setHasNewFriendRequest }) => {
                   <span className="font-semibold text-gray-700">{user.username}</span>
                 </Link>
                 <div className="flex items-center gap-2">
+                  <button
+                      onClick={() => queueAudioCall(user.username)}
+                      className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 text-sm rounded-md font-semibold"
+                  >
+                      Call
+                  </button>
                   <Link to={`/chat/${user.username}`} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 text-sm rounded-md font-semibold">
                       Chat
                   </Link>

@@ -172,6 +172,12 @@ const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, cur
         if (!timestamp) return '';
         return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
+
+    const queueAudioCall = (username) => {
+        if (!username) return;
+        localStorage.setItem('pendingCallUser', username);
+        navigate(`/chat/${username}`);
+    };
     
     const activeStyle = { backgroundColor: '#EFF6FF' };
 
@@ -216,27 +222,44 @@ const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, cur
                         };
 
                         return (
-                            <NavLink
+                            <div
                                 key={`${convo.type}-${convo.id}`}
-                                to={convo.type === 'group' ? `/group/${convo.id}` : `/chat/${convo.name}`}
                                 onContextMenu={(e) => handleContextMenu(e, convo)}
-                                style={({ isActive }) => isActive ? activeStyle : undefined}
-                                className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 w-full"
+                                className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 w-full"
                             >
-                                <Avatar user={avatarUser} size="w-12 h-12" />
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-start gap-2">
-                                        <div className="min-w-0">
-                                            <p className="font-semibold truncate text-gray-800">{displayName}</p>
-                                            {showUsernameBadge && (
-                                                <p className="text-xs text-gray-500 truncate">@{convo.name}</p>
-                                            )}
+                                <NavLink
+                                    to={convo.type === 'group' ? `/group/${convo.id}` : `/chat/${convo.name}`}
+                                    style={({ isActive }) => isActive ? activeStyle : undefined}
+                                    className="flex items-center gap-3 flex-1 min-w-0 rounded-lg p-1"
+                                >
+                                    <Avatar user={avatarUser} size="w-12 h-12" />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <div className="min-w-0">
+                                                <p className="font-semibold truncate text-gray-800">{displayName}</p>
+                                                {showUsernameBadge && (
+                                                    <p className="text-xs text-gray-500 truncate">@{convo.name}</p>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-gray-500 flex-shrink-0 text-right">{formatTimestamp(convo.lastMessageTimestamp)}</p>
                                         </div>
-                                        <p className="text-xs text-gray-500 flex-shrink-0 text-right">{formatTimestamp(convo.lastMessageTimestamp)}</p>
+                                        <p className="text-sm text-gray-600 truncate mt-1">{convo.lastMessage || 'No messages yet'}</p>
                                     </div>
-                                    <p className="text-sm text-gray-600 truncate mt-1">{convo.lastMessage || 'No messages yet'}</p>
-                                </div>
-                            </NavLink>
+                                </NavLink>
+
+                                {convo.type === 'private' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => queueAudioCall(convo.name)}
+                                        className="h-9 w-9 rounded-full border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center"
+                                        title={`Call ${displayName}`}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h2.3a1 1 0 01.95.68l1.2 3.6a1 1 0 01-.23 1.02l-1.52 1.52a16 16 0 006.36 6.36l1.52-1.52a1 1 0 011.02-.23l3.6 1.2a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.94 21 3 14.06 3 5V5z" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
                         );
                     })
                 ) : (

@@ -9,6 +9,8 @@ const CreateGroupModal = ({ onClose, onGroupCreated, keyPair, currentUser }) => 
     const [friends, setFriends] = useState([]);
     const [selectedFriends, setSelectedFriends] = useState(new Set());
     const [groupName, setGroupName] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const canManageGroups = currentUser
         ? (ALLOWED_ROLES.has(currentUser.role) || !!currentUser.can_create_group)
         : false;
@@ -40,6 +42,7 @@ const CreateGroupModal = ({ onClose, onGroupCreated, keyPair, currentUser }) => 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
         if (!canManageGroups) {
             alert("You do not have permission to create groups.");
             return;
@@ -53,6 +56,7 @@ const CreateGroupModal = ({ onClose, onGroupCreated, keyPair, currentUser }) => 
             return;
         }
         try {
+            setIsSubmitting(true);
             const token = localStorage.getItem('token');
             const currentUserId = parseInt(localStorage.getItem('userId'));
 
@@ -90,8 +94,14 @@ const CreateGroupModal = ({ onClose, onGroupCreated, keyPair, currentUser }) => 
         } catch (error) {
             console.error("Failed to create group:", error);
             alert(`Error creating group: ${error.message}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
+
+    const filteredFriends = friends.filter(friend => (
+        friend.username?.toLowerCase().includes(searchTerm.toLowerCase())
+    ));
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-30">
@@ -107,9 +117,18 @@ const CreateGroupModal = ({ onClose, onGroupCreated, keyPair, currentUser }) => 
                         required
                     />
                     <h3 className="font-semibold mb-2">Invite Friends (Optional):</h3>
+                    <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search friends..."
+                        className="w-full p-2 border rounded mb-2 text-sm"
+                        disabled={!canManageGroups}
+                    />
+                    <p className="text-xs text-gray-500 mb-2">Selected: {selectedFriends.size}</p>
                     <div className="max-h-48 overflow-y-auto border rounded p-2 mb-4">
                         {canManageGroups ? (
-                            friends.length > 0 ? friends.map(friend => (
+                            filteredFriends.length > 0 ? filteredFriends.map(friend => (
                                 <div key={friend.id} className="flex items-center gap-2 p-1">
                                     <input 
                                         type="checkbox" 
@@ -119,19 +138,19 @@ const CreateGroupModal = ({ onClose, onGroupCreated, keyPair, currentUser }) => 
                                     />
                                     <label htmlFor={`friend-${friend.id}`}>{friend.username}</label>
                                 </div>
-                            )) : <p className="text-sm text-gray-500">You have no friends to invite.</p>
+                            )) : <p className="text-sm text-gray-500">{friends.length > 0 ? 'No friends match your search.' : 'You have no friends to invite.'}</p>
                         ) : (
                             <p className="text-sm text-gray-500">Your role cannot invite members. Contact a group administrator.</p>
                         )}
                     </div>
                     <div className="flex justify-end gap-2">
-                        <button type="button" onClick={onClose} className="bg-gray-200 px-4 py-2 rounded">Cancel</button>
+                        <button type="button" onClick={onClose} className="bg-gray-200 px-4 py-2 rounded" disabled={isSubmitting}>Cancel</button>
                         <button
                             type="submit"
                             className={`px-4 py-2 rounded ${canManageGroups ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
-                            disabled={!canManageGroups}
+                            disabled={!canManageGroups || isSubmitting}
                         >
-                            Create
+                            {isSubmitting ? 'Creating...' : 'Create'}
                         </button>
                     </div>
                 </form>

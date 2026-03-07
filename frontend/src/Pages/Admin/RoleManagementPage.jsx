@@ -11,6 +11,9 @@ const RoleManagementPage = ({ currentUser }) => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [updatingUserId, setUpdatingUserId] = useState(null);
+    const [isBulkApproving, setIsBulkApproving] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [approvalFilter, setApprovalFilter] = useState('all');
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -147,6 +150,54 @@ const RoleManagementPage = ({ currentUser }) => {
         }
     };
 
+    const handleApproveAllPending = async () => {
+        const pendingUsers = users.filter(u => (u.approval_status || 'approved') === 'pending');
+        if (!pendingUsers.length) return;
+
+        setError('');
+        setSuccess('');
+        setIsBulkApproving(true);
+
+        try {
+            const token = localStorage.getItem('token');
+            for (const pendingUser of pendingUsers) {
+                const response = await fetch(`${SERVER_URL}/api/admin/users/${pendingUser.id}/approval`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ status: 'approved' })
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.message || `Failed to approve ${pendingUser.username}.`);
+                }
+            }
+
+            setUsers(prev => prev.map(u => (
+                (u.approval_status || 'approved') === 'pending' ? { ...u, approval_status: 'approved' } : u
+            )));
+            setSuccess(`Approved ${pendingUsers.length} pending user(s).`);
+        } catch (err) {
+            console.error('Bulk approve error:', err);
+            setError(err.message);
+        } finally {
+            setIsBulkApproving(false);
+        }
+    };
+
+    const pendingUsers = users.filter(u => (u.approval_status || 'approved') === 'pending');
+    const approvedCount = users.filter(u => (u.approval_status || 'approved') === 'approved').length;
+    const rejectedCount = users.filter(u => (u.approval_status || 'approved') === 'rejected').length;
+
+    const filteredUsers = users.filter((user) => {
+        const normalizedSearch = searchTerm.trim().toLowerCase();
+        const usernameMatched = !normalizedSearch || user.username.toLowerCase().includes(normalizedSearch);
+        const approvalMatched = approvalFilter === 'all' || (user.approval_status || 'approved') === approvalFilter;
+        return usernameMatched && approvalMatched;
+    });
+
     if (!currentUser || currentUser.role !== 'super-admin') {
         return <div className="p-6 text-center text-red-500">Access denied.</div>;
     }
@@ -162,8 +213,91 @@ const RoleManagementPage = ({ currentUser }) => {
                 <p className="text-sm text-gray-500 mt-1">Assign application roles to users. You cannot change your own role.</p>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg border bg-amber-50 border-amber-200">
+                    <p className="text-xs text-amber-700">Pending</p>
+                    <p className="text-2xl font-bold text-amber-800">{pendingUsers.length}</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-green-50 border-green-200">
+                    <p className="text-xs text-green-700">Approved</p>
+                    <p className="text-2xl font-bold text-green-800">{approvedCount}</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-red-50 border-red-200">
+                    <p className="text-xs text-red-700">Rejected</p>
+                    <p className="text-2xl font-bold text-red-800">{rejectedCount}</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-blue-50 border-blue-200">
+                    <p className="text-xs text-blue-700">Total Users</p>
+                    <p className="text-2xl font-bold text-blue-800">{users.length}</p>
+                </div>
+            </div>
+
             {error && <div className="bg-red-100 text-red-700 px-4 py-2 rounded-md">{error}</div>}
             {success && <div className="bg-green-100 text-green-700 px-4 py-2 rounded-md">{success}</div>}
+
+            {pendingUsers.length > 0 && (
+                <div className="bg-white rounded-lg shadow-md border border-amber-200 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <h2 className="text-lg font-semibold text-gray-800">Pending Approvals</h2>
+                        <button
+                            type="button"
+                            onClick={handleApproveAllPending}
+                            disabled={isBulkApproving}
+                            className="px-3 py-2 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-emerald-300"
+                        >
+                            {isBulkApproving ? 'Approving...' : `Approve All (${pendingUsers.length})`}
+                        </button>
+                    </div>
+                    <div className="space-y-2">
+                        {pendingUsers.slice(0, 8).map((user) => (
+                            <div key={`pending-${user.id}`} className="flex flex-wrap items-center justify-between gap-2 border rounded-md p-2">
+                                <div className="flex items-center gap-2">
+                                    <Avatar user={user} size="w-8 h-8" />
+                                    <span className="font-medium text-sm">{user.username}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleApprovalChange(user.id, 'approved')}
+                                        disabled={updatingUserId === user.id}
+                                        className="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700 disabled:bg-green-300"
+                                    >
+                                        Approve
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleApprovalChange(user.id, 'rejected')}
+                                        disabled={updatingUserId === user.id}
+                                        className="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300"
+                                    >
+                                        Reject
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="bg-white rounded-lg shadow-md p-4 flex flex-wrap items-center gap-3">
+                <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search username..."
+                    className="border rounded-md px-3 py-2 text-sm flex-1 min-w-[180px]"
+                />
+                <select
+                    value={approvalFilter}
+                    onChange={(e) => setApprovalFilter(e.target.value)}
+                    className="border rounded-md px-3 py-2 text-sm"
+                >
+                    <option value="all">All approvals</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
 
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -177,7 +311,7 @@ const RoleManagementPage = ({ currentUser }) => {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {users.map(user => {
+                        {filteredUsers.map(user => {
                             const roleMeta = getRoleMeta(user.role);
                             const isSelf = user.id === currentUser.id;
                             return (

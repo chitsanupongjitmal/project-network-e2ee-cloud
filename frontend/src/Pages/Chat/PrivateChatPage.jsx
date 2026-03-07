@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { usePrivateChat } from '../../hooks/usePrivateChat';
 
@@ -25,6 +25,7 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
 
     const { username: peerUsername } = useParams();
     const [viewingImage, setViewingImage] = useState(null);
+    const autoCallStartedRef = useRef(false);
 
     const {
         isLoading,
@@ -68,6 +69,18 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
             avatarUrl: peerUser.avatar_url || null,
         });
     }, [peerUser, callUser, isBlockedByMe, hasBlockedMe]);
+
+    useEffect(() => {
+        if (!peerUser || autoCallStartedRef.current) return;
+        const pendingCallUser = localStorage.getItem('pendingCallUser');
+        if (!pendingCallUser) return;
+
+        if (pendingCallUser.toLowerCase() === String(peerUsername || '').toLowerCase()) {
+            autoCallStartedRef.current = true;
+            localStorage.removeItem('pendingCallUser');
+            startAudioCall();
+        }
+    }, [peerUser, peerUsername, startAudioCall]);
 
 
     if (isLoading && !peerUser) {  }
@@ -134,4 +147,3 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
 };
 
 export default PrivateChatPage;
-
