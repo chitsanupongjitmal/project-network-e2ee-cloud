@@ -341,7 +341,9 @@ const SettingsPage = ({ currentUser, onSettingsChange, themeMode = 'light', onTh
                             className={`px-3 py-1.5 text-sm rounded-full border ${
                                 callFilter === filter.key
                                     ? 'bg-blue-600 border-blue-600 text-white'
-                                    : 'bg-white border-gray-300 text-gray-700'
+                                    : isDark
+                                        ? 'bg-zinc-900 border-zinc-700 text-gray-200'
+                                        : 'bg-white border-gray-300 text-gray-700'
                             }`}
                         >
                             {filter.label}
@@ -358,9 +360,9 @@ const SettingsPage = ({ currentUser, onSettingsChange, themeMode = 'light', onTh
                             const title = isPrivate ? `Private call with ${peerName}` : `Group call: ${item.group_name || `Group ${item.group_id}`}`;
                             const statusMeta = getCallStatusMeta(item.status);
                             return (
-                                <div key={item.id} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                <div key={item.id} className={`p-3 rounded-lg border ${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-gray-50 border-gray-200'}`}>
                                     <div className="flex items-center justify-between gap-3">
-                                        <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>{title}</p>
+                                        <p className={`font-semibold ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>{title}</p>
                                         <span className={`text-xs font-bold uppercase px-2 py-1 rounded-full ${statusMeta.classes}`}>
                                             {statusMeta.label}
                                         </span>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SERVER_URL } from '../../config';
 import PostItem from '../../Components/Posts/PostItem';
 
-const FeedPage = () => {
+const FeedPage = ({ themeMode = 'light' }) => {
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [postText, setPostText] = useState('');
@@ -122,13 +122,15 @@ const FeedPage = () => {
     };
 
     if (isLoading) {
-        return <p className="text-center mt-8">Loading feed...</p>;
+        return <p className={`text-center mt-8 ${themeMode === 'dark' ? 'text-gray-300' : ''}`}>Loading feed...</p>;
     }
+
+    const isDark = themeMode === 'dark';
 
     return (
         <div className="h-full overflow-y-auto">
         <div className="max-w-2xl mx-auto p-3 sm:p-4 font-sans pb-24 sm:pb-6">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">News Feed</h1>
+            <h1 className={`text-3xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-800'}`}>News Feed</h1>
 
             <form onSubmit={handleCreatePost} className="bg-white p-4 rounded-lg shadow-md mb-6 space-y-3">
                 <textarea

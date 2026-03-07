@@ -251,9 +251,9 @@ const App = () => {
                     />} 
                 />
                 <Route path="group/:groupId" element={<GroupChatPage socket={socket} currentUser={user} keyPair={keyPair} themeMode={themeMode} onKeyDecrypted={handleKeyDecrypted} decryptedGroupKeys={decryptedGroupKeys} />} />
-                <Route path="feed" element={<FeedPage />} />
-                <Route path="friends" element={<FriendsPage socket={socket} setHasNewFriendRequest={setHasNewFriendRequest} />} />
-                <Route path="search" element={<SearchPage />} />
+                <Route path="feed" element={<FeedPage themeMode={themeMode} />} />
+                <Route path="friends" element={<FriendsPage socket={socket} setHasNewFriendRequest={setHasNewFriendRequest} themeMode={themeMode} />} />
+                <Route path="search" element={<SearchPage themeMode={themeMode} />} />
                 <Route path="profile/:username" element={<ProfilePage currentUser={user} socket={socket} />} />
                <Route path="settings" element={<SettingsPage currentUser={user} onSettingsChange={handleSettingsChange} themeMode={themeMode} onThemeModeChange={setThemeMode} />} />
                 <Route path="admin/roles" element={user?.role === 'super-admin' ? <RoleManagementPage currentUser={user} /> : <Navigate to="/" />} />

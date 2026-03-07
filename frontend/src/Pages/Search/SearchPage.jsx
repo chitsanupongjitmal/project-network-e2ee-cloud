@@ -16,7 +16,7 @@ const EmptyStateIcon = () => (
   </svg>
 );
 
-export default function SearchPage() {
+export default function SearchPage({ themeMode = 'light' }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
