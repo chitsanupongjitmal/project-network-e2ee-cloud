@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `call_history` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `call_type` enum('private','group') NOT NULL,
+  `mode` enum('audio','video') NOT NULL DEFAULT 'audio',
+  `status` enum('ringing','answered','completed','missed','declined','cancelled') NOT NULL DEFAULT 'ringing',
+  `caller_id` int(11) NOT NULL,
+  `callee_id` int(11) DEFAULT NULL,
+  `group_id` int(11) DEFAULT NULL,
+  `started_at` datetime DEFAULT NULL,
+  `ended_at` datetime DEFAULT NULL,
+  `duration_seconds` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_call_history_caller_id` (`caller_id`),
+  KEY `idx_call_history_callee_id` (`callee_id`),
+  KEY `idx_call_history_group_id` (`group_id`),
+  KEY `idx_call_history_created_at` (`created_at`),
+  CONSTRAINT `fk_call_history_caller` FOREIGN KEY (`caller_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_call_history_callee` FOREIGN KEY (`callee_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_call_history_group` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -17,6 +17,7 @@ const chatRoutes = require('./routes/chat');
 const groupRoutes = require('./routes/groups');
 const conversationRoutes = require('./routes/conversations');
 const adminRoutes = require('./routes/admin');
+const callRoutes = require('./routes/calls');
 
 
 const PORT = Number(process.env.PORT) || 4001;
@@ -97,6 +98,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/calls', callRoutes);
 
 server.listen(PORT, '0.0.0.0', () => {
     const protocol = ENABLE_HTTPS ? 'https' : 'http';
