@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
 
@@ -31,6 +31,9 @@ const App = () => {
     const [keyPair, setKeyPair] = useState(null);
     const [peerKeyVersions, setPeerKeyVersions] = useState({});
     const [decryptedGroupKeys, setDecryptedGroupKeys] = useState({});
+    const [incomingGroupCall, setIncomingGroupCall] = useState(null);
+    const [themeMode, setThemeMode] = useState(() => localStorage.getItem('themeMode') || 'light');
+    const location = useLocation();
 
     const navigateRef = useRef(navigate);
     
@@ -62,15 +65,23 @@ const App = () => {
         
         const handleCallEnded = () => {
         };
+
+        const handleIncomingGroupCall = (data) => {
+            if (!data?.groupId) return;
+            if (location.pathname === `/group/${data.groupId}`) return;
+            setIncomingGroupCall(data);
+        };
         
         socket.on('call-made', handleCallMade);
         socket.on('call-ended', handleCallEnded); 
+        socket.on('incoming-group-call', handleIncomingGroupCall);
 
         return () => {
             socket.off('call-made', handleCallMade);
             socket.off('call-ended', handleCallEnded); 
+            socket.off('incoming-group-call', handleIncomingGroupCall);
         };
-    }, [socket, user, call, setCall]);
+    }, [socket, user, call, setCall, location.pathname]);
 
     const handleLogout = useCallback(async (forceNav = true) => {
         setSocket(currentSocket => {
@@ -146,6 +157,12 @@ const App = () => {
         }
     }, [token, user, handleLogout]); 
 
+    useEffect(() => {
+        const normalizedMode = themeMode === 'dark' ? 'dark' : 'light';
+        localStorage.setItem('themeMode', normalizedMode);
+        document.body.style.backgroundColor = normalizedMode === 'dark' ? '#000000' : '#ffffff';
+    }, [themeMode]);
+
     const handleLoginSuccess = (newToken, userData) => {
         localStorage.setItem('token', newToken);
         localStorage.setItem('username', userData.username);
@@ -183,6 +200,15 @@ const App = () => {
     if (isLoading) {
         return <div className="flex justify-center items-center h-screen">Loading...</div>;
     }
+
+    const handleAcceptGroupCall = () => {
+        if (!incomingGroupCall?.groupId) return;
+        localStorage.setItem('pendingGroupCallGroupId', String(incomingGroupCall.groupId));
+        navigate(`/group/${incomingGroupCall.groupId}`);
+        setIncomingGroupCall(null);
+    };
+
+    const handleDismissGroupCall = () => setIncomingGroupCall(null);
   
     const WelcomeComponent = () => (
         <div className="flex-1 flex-col items-center justify-center h-full text-center text-gray-500 hidden sm:flex">
@@ -192,7 +218,7 @@ const App = () => {
     );
 
     return (
-      <>
+      <div className={`${themeMode === 'dark' ? 'bg-black text-white' : 'bg-white text-gray-900'} min-h-[100dvh]`}>
         <Routes>
           {!token || !user ? (
             <>
@@ -206,6 +232,7 @@ const App = () => {
                       user={user} 
                       onLogout={handleLogout} 
                       hasNewFriendRequest={hasNewFriendRequest} 
+                      themeMode={themeMode}
                       socket={socket} 
                       keyPair={keyPair} 
                       decryptedGroupKeys={decryptedGroupKeys}
@@ -227,7 +254,7 @@ const App = () => {
                 <Route path="friends" element={<FriendsPage socket={socket} setHasNewFriendRequest={setHasNewFriendRequest} />} />
                 <Route path="search" element={<SearchPage />} />
                 <Route path="profile/:username" element={<ProfilePage currentUser={user} socket={socket} />} />
-               <Route path="settings" element={<SettingsPage currentUser={user} onSettingsChange={handleSettingsChange} />} />
+               <Route path="settings" element={<SettingsPage currentUser={user} onSettingsChange={handleSettingsChange} themeMode={themeMode} onThemeModeChange={setThemeMode} />} />
                 <Route path="admin/roles" element={user?.role === 'super-admin' ? <RoleManagementPage currentUser={user} /> : <Navigate to="/" />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Route>
@@ -247,7 +274,35 @@ const App = () => {
                 toggleMute={toggleMute}
             />
         )}
-      </>
+
+        {incomingGroupCall && (
+            <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+                <div className="w-full max-w-md bg-white rounded-xl shadow-xl p-6 text-center">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2">Incoming Group Call</h3>
+                    <p className="text-gray-600 mb-1">
+                        {incomingGroupCall.caller?.username || 'Someone'} is calling in
+                    </p>
+                    <p className="font-semibold text-gray-800 mb-6">
+                        {incomingGroupCall.groupName || `Group ${incomingGroupCall.groupId}`}
+                    </p>
+                    <div className="flex justify-center gap-3">
+                        <button
+                            onClick={handleDismissGroupCall}
+                            className="px-5 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold"
+                        >
+                            Decline
+                        </button>
+                        <button
+                            onClick={handleAcceptGroupCall}
+                            className="px-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold"
+                        >
+                            Join
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+      </div>
     );
 };
 

@@ -27,7 +27,7 @@ const ContextMenu = ({ x, y, convo, onClose, onHideChat }) => {
 const MANAGER_ROLES = new Set(['group-admin', 'super-admin']);
 const canManageGroups = (user) => !!user && (MANAGER_ROLES.has(user.role) || !!user.can_create_group);
 
-const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, currentUser }) => {
+const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, currentUser, themeMode = 'light' }) => {
     const [rawConversations, setRawConversations] = useState([]);
     const [decryptedConversations, setDecryptedConversations] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -179,39 +179,40 @@ const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, cur
         navigate(`/chat/${username}`);
     };
     
-    const activeStyle = { backgroundColor: '#EFF6FF' };
+    const isDark = themeMode === 'dark';
+    const activeStyle = { backgroundColor: isDark ? '#1f2937' : '#EFF6FF' };
 
     return (
-        <div className="h-full flex flex-col bg-white">
-            <div className="p-4 border-b">
+        <div className={`h-full flex flex-col ${isDark ? 'bg-black text-white' : 'bg-white'}`}>
+            <div className={`p-4 border-b ${isDark ? 'border-gray-800' : ''}`}>
                 <div className="flex justify-between items-center">
                     <h1 className="text-2xl font-bold">Chats</h1>
                     <button
                         onClick={() => manageGroups && setIsModalOpen(true)}
-                        className={`hidden sm:inline-flex p-2 rounded-full ${manageGroups ? 'hover:bg-gray-100' : 'cursor-not-allowed text-gray-300'}`}
+                        className={`hidden sm:inline-flex p-2 rounded-full ${manageGroups ? (isDark ? 'hover:bg-gray-900' : 'hover:bg-gray-100') : 'cursor-not-allowed text-gray-300'}`}
                         title={manageGroups ? "Create New Group" : "You do not have permission to create groups"}
                         disabled={!manageGroups}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${manageGroups ? 'text-gray-600' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${manageGroups ? (isDark ? 'text-gray-300' : 'text-gray-600') : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                     </button>
                 </div>
                 {!manageGroups && (
-                    <p className="text-xs text-gray-500 mt-2">Only users with group-creation permission can create new group chats.</p>
+                    <p className={`text-xs mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Only users with group-creation permission can create new group chats.</p>
                 )}
                 <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search chats..."
-                    className="w-full mt-4 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none"
+                    className={`w-full mt-4 px-4 py-2 border rounded-lg focus:outline-none ${isDark ? 'border-gray-700 bg-gray-900 text-white' : 'border-gray-300'}`}
                 />
             </div>
             
             <div className="flex-1 overflow-y-auto p-2">
                  {isLoading ? (
-                     <p className="text-center text-gray-500 mt-4">Loading...</p>
+                     <p className={`text-center mt-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading...</p>
                 ) : decryptedConversations.length > 0 ? (
                     decryptedConversations.map(convo => {
                         const displayName = convo.nickname || convo.display_name || convo.name;
@@ -225,7 +226,7 @@ const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, cur
                             <div
                                 key={`${convo.type}-${convo.id}`}
                                 onContextMenu={(e) => handleContextMenu(e, convo)}
-                                className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 w-full"
+                                className={`flex items-center gap-2 p-2 rounded-lg w-full ${isDark ? 'hover:bg-gray-900' : 'hover:bg-gray-100'}`}
                             >
                                 <NavLink
                                     to={convo.type === 'group' ? `/group/${convo.id}` : `/chat/${convo.name}`}
@@ -236,14 +237,14 @@ const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, cur
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start gap-2">
                                             <div className="min-w-0">
-                                                <p className="font-semibold truncate text-gray-800">{displayName}</p>
+                                                <p className={`font-semibold truncate ${isDark ? 'text-white' : 'text-gray-800'}`}>{displayName}</p>
                                                 {showUsernameBadge && (
-                                                    <p className="text-xs text-gray-500 truncate">@{convo.name}</p>
+                                                    <p className={`text-xs truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>@{convo.name}</p>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-gray-500 flex-shrink-0 text-right">{formatTimestamp(convo.lastMessageTimestamp)}</p>
+                                            <p className={`text-xs flex-shrink-0 text-right ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{formatTimestamp(convo.lastMessageTimestamp)}</p>
                                         </div>
-                                        <p className="text-sm text-gray-600 truncate mt-1">{convo.lastMessage || 'No messages yet'}</p>
+                                        <p className={`text-sm truncate mt-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{convo.lastMessage || 'No messages yet'}</p>
                                     </div>
                                 </NavLink>
 
@@ -251,7 +252,7 @@ const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, cur
                                     <button
                                         type="button"
                                         onClick={() => queueAudioCall(convo.name)}
-                                        className="h-9 w-9 rounded-full border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center"
+                                        className={`h-9 w-9 rounded-full border flex items-center justify-center ${isDark ? 'border-gray-700 text-gray-300 hover:text-blue-400 hover:border-blue-400' : 'border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300'}`}
                                         title={`Call ${displayName}`}
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -263,7 +264,7 @@ const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, cur
                         );
                     })
                 ) : (
-                    <p className="text-gray-500 text-center py-4">
+                    <p className={`${isDark ? 'text-gray-400' : 'text-gray-500'} text-center py-4`}>
                         {searchQuery ? `No chats found for "${searchQuery}"` : "You have no active conversations."}
                     </p>
                 )}

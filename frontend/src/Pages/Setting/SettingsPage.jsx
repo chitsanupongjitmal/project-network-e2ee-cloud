@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SERVER_URL } from '../../config';
 import Avatar from '../../Components/Common/Avatar';
 
-const SettingsPage = ({ currentUser, onSettingsChange }) => {
+const SettingsPage = ({ currentUser, onSettingsChange, themeMode = 'light', onThemeModeChange }) => {
     const [displayName, setDisplayName] = useState(currentUser.display_name || currentUser.username);
     const [error, setError] = useState('');
     const [hiddenChats, setHiddenChats] = useState([]);
@@ -212,9 +212,14 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
         );
     };
 
+    const isDark = themeMode === 'dark';
+    const pageClass = isDark ? 'bg-black text-white' : 'text-gray-900';
+    const cardClass = isDark ? 'bg-zinc-950 border border-zinc-800 text-white' : 'bg-white';
+    const mutedTextClass = isDark ? 'text-gray-300' : 'text-gray-500';
+
     return (
-        <div className="max-w-xl mx-auto p-4 font-sans h-full overflow-y-auto">
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <div className={`max-w-xl mx-auto p-4 font-sans h-full overflow-y-auto ${pageClass}`}>
+            <div className={`${cardClass} p-6 rounded-lg shadow-md mb-6`}>
                 <h1 className="text-2xl font-bold mb-6 text-center">User Settings</h1>
 
                 {error && <p className="text-red-500 bg-red-100 p-3 rounded-md mb-4">{error}</p>}
@@ -245,12 +250,32 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
                 </div>
 
                 <RoleDisplay role={currentUser.role} />
+
+                <div className="mb-6">
+                    <label className="font-semibold block mb-2">Theme Mode</label>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => onThemeModeChange?.('light')}
+                            className={`px-4 py-2 rounded-lg border ${themeMode === 'light' ? 'bg-blue-600 text-white border-blue-600' : (isDark ? 'bg-zinc-900 border-zinc-700 text-gray-200' : 'bg-white border-gray-300 text-gray-700')}`}
+                        >
+                            Light
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onThemeModeChange?.('dark')}
+                            className={`px-4 py-2 rounded-lg border ${themeMode === 'dark' ? 'bg-blue-600 text-white border-blue-600' : (isDark ? 'bg-zinc-900 border-zinc-700 text-gray-200' : 'bg-white border-gray-300 text-gray-700')}`}
+                        >
+                            Dark
+                        </button>
+                    </div>
+                </div>
                 
                 <div className="mb-6">
                     <label htmlFor="username" className="font-semibold block mb-2">Username (Cannot be changed)</label>
                     <input
                         id="username" type="text" value={currentUser.username}
-                        className="w-full px-4 py-2 border border-gray-200 bg-gray-100 text-gray-500 rounded-lg focus:outline-none"
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none ${isDark ? 'border-zinc-700 bg-zinc-900 text-gray-300' : 'border-gray-200 bg-gray-100 text-gray-500'}`}
                         readOnly
                     />
                 </div>
@@ -261,7 +286,7 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
                         <input
                             id="displayName" type="text" value={displayName}
                             onChange={(e) => setDisplayName(e.target.value)}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'border-zinc-700 bg-zinc-900 text-white' : 'border-gray-300'}`}
                         />
                         <button
                             type="submit"
@@ -274,12 +299,12 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
                 </form>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className={`${cardClass} p-6 rounded-lg shadow-md`}>
                 <h2 className="text-xl font-bold mb-4">Hidden Chats</h2>
                 <div className="space-y-3">
                     {hiddenChats.length > 0 ? (
                         hiddenChats.map(chat => (
-                            <div key={chat.id} className="flex justify-between items-center p-2 rounded-lg bg-gray-50">
+                            <div key={chat.id} className={`flex justify-between items-center p-2 rounded-lg ${isDark ? 'bg-zinc-900' : 'bg-gray-50'}`}>
                                 <div className="flex items-center gap-3">
                                     <Avatar user={chat} size="w-10 h-10" />
                                     <span className="font-semibold">{chat.name}</span>
@@ -293,12 +318,12 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
                             </div>
                         ))
                     ) : (
-                        <p className="text-gray-500 text-center py-4">You have no hidden chats.</p>
+                        <p className={`${mutedTextClass} text-center py-4`}>You have no hidden chats.</p>
                     )}
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-md mt-6">
+            <div className={`${cardClass} p-6 rounded-lg shadow-md mt-6`}>
                 <div className="flex items-center justify-between gap-3 mb-4">
                     <h2 className="text-xl font-bold">Call History</h2>
                 </div>
@@ -335,22 +360,22 @@ const SettingsPage = ({ currentUser, onSettingsChange }) => {
                             return (
                                 <div key={item.id} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
                                     <div className="flex items-center justify-between gap-3">
-                                        <p className="font-semibold text-gray-800">{title}</p>
+                                        <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>{title}</p>
                                         <span className={`text-xs font-bold uppercase px-2 py-1 rounded-full ${statusMeta.classes}`}>
                                             {statusMeta.label}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className={`text-xs ${mutedTextClass} mt-1`}>
                                         {formatTime(item.started_at || item.created_at)}
                                     </p>
-                                    <p className="text-sm text-gray-600 mt-1">
+                                    <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'} mt-1`}>
                                         Duration: {formatDuration(item.duration_seconds)}
                                     </p>
                                 </div>
                             );
                         })
                     ) : (
-                        <p className="text-gray-500 text-center py-4">No call history for this filter.</p>
+                        <p className={`${mutedTextClass} text-center py-4`}>No call history for this filter.</p>
                     )}
                 </div>
             </div>

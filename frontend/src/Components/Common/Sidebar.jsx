@@ -42,13 +42,15 @@ const LogoutIcon = () => (
 );
 
 
-const Sidebar = ({ user, onLogout, hasNewFriendRequest }) => {
+const Sidebar = ({ user, onLogout, hasNewFriendRequest, themeMode = 'light' }) => {
   const commonLinkClass = "flex items-center justify-center p-3 rounded-lg w-full transition-colors";
   const activeLinkStyle = "text-blue-500 bg-blue-100";
-  const inactiveLinkStyle = "text-gray-600 hover:bg-gray-100";
+  const inactiveLinkStyle = themeMode === 'dark'
+    ? "text-gray-300 hover:bg-gray-900"
+    : "text-gray-600 hover:bg-gray-100";
 
   return (
-    <aside className="w-16 sm:w-20 bg-white border-r flex flex-col items-center py-3 sm:py-4 h-[100dvh] flex-shrink-0 z-20">
+    <aside className={`w-16 sm:w-20 border-r flex flex-col items-center py-3 sm:py-4 h-[100dvh] flex-shrink-0 z-20 ${themeMode === 'dark' ? 'bg-black border-gray-800' : 'bg-white border-gray-200'}`}>
       <Link to="/" className="mb-8"></Link>
 
       <nav className="flex-1 w-full px-2">
@@ -68,7 +70,7 @@ const Sidebar = ({ user, onLogout, hasNewFriendRequest }) => {
               {({ isActive }) => <FriendsIcon isActive={isActive} />}
             </NavLink>
             {hasNewFriendRequest && (
-              <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"></span>
+              <span className={`absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ${themeMode === 'dark' ? 'ring-black' : 'ring-white'}`}></span>
             )}
           </li>
           <li>
@@ -93,7 +95,7 @@ const Sidebar = ({ user, onLogout, hasNewFriendRequest }) => {
          <NavLink to="/settings" title="Settings" className={({ isActive }) => `${commonLinkClass} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}>
             {({ isActive }) => <SettingsIcon isActive={isActive} />}
          </NavLink>
-         <button onClick={onLogout} title="Logout" className={`${commonLinkClass} text-red-500 hover:bg-red-50`}>
+         <button onClick={onLogout} title="Logout" className={`${commonLinkClass} text-red-500 ${themeMode === 'dark' ? 'hover:bg-red-950/50' : 'hover:bg-red-50'}`}>
             <LogoutIcon />
          </button>
       </div>

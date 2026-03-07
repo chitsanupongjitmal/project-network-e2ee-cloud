@@ -5,7 +5,7 @@ import Sidebar from './Common/Sidebar';
 import ChatListPage from '../Pages/Chat/ChatListPage';
 
 
-const Layout = ({ user, onLogout, hasNewFriendRequest, socket, keyPair, decryptedGroupKeys, onKeyDecrypted }) => {
+const Layout = ({ user, onLogout, hasNewFriendRequest, themeMode, socket, keyPair, decryptedGroupKeys, onKeyDecrypted }) => {
 
     const location = useLocation();
 
@@ -14,20 +14,22 @@ const Layout = ({ user, onLogout, hasNewFriendRequest, socket, keyPair, decrypte
 
     return (
 
-        <div className="flex h-[100dvh] bg-gray-100 overflow-hidden safe-bottom">
+        <div className={`flex h-[100dvh] overflow-hidden safe-bottom ${themeMode === 'dark' ? 'bg-black' : 'bg-gray-100'}`}>
             <Sidebar 
                 user={user}
                 onLogout={onLogout}
                 hasNewFriendRequest={hasNewFriendRequest}
+                themeMode={themeMode}
             />
 
             {}
             {}
             {}
-            <aside className={`${isAtChatListRoot ? 'flex' : 'hidden'} sm:flex w-full sm:w-80 flex-shrink-0 flex-col bg-white border-r`}>
+            <aside className={`${isAtChatListRoot ? 'flex' : 'hidden'} sm:flex w-full sm:w-80 flex-shrink-0 flex-col border-r ${themeMode === 'dark' ? 'bg-black border-gray-800' : 'bg-white border-gray-200'}`}>
                 {}
                 <ChatListPage 
                     currentUser={user} 
+                    themeMode={themeMode}
                     socket={socket} 
                     keyPair={keyPair} 
                     decryptedGroupKeys={decryptedGroupKeys} 
@@ -39,7 +41,7 @@ const Layout = ({ user, onLogout, hasNewFriendRequest, socket, keyPair, decrypte
             {}
             {}
             {}
-            <main className={`${isAtChatListRoot ? 'hidden' : 'flex'} sm:flex flex-1 flex-col`}>
+            <main className={`${isAtChatListRoot ? 'hidden' : 'flex'} sm:flex flex-1 flex-col ${themeMode === 'dark' ? 'bg-black' : 'bg-white'}`}>
                 <Outlet />
             </main>
         </div>
