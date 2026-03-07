@@ -188,7 +188,7 @@ const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, cur
                     <h1 className="text-2xl font-bold">Chats</h1>
                     <button
                         onClick={() => manageGroups && setIsModalOpen(true)}
-                        className={`p-2 rounded-full ${manageGroups ? 'hover:bg-gray-100' : 'cursor-not-allowed text-gray-300'}`}
+                        className={`hidden sm:inline-flex p-2 rounded-full ${manageGroups ? 'hover:bg-gray-100' : 'cursor-not-allowed text-gray-300'}`}
                         title={manageGroups ? "Create New Group" : "You do not have permission to create groups"}
                         disabled={!manageGroups}
                     >
@@ -276,6 +276,19 @@ const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, cur
                     keyPair={keyPair}
                     currentUser={currentUser}
                 />
+            )}
+
+            {manageGroups && (
+                <button
+                    type="button"
+                    onClick={() => setIsModalOpen(true)}
+                    className="sm:hidden fixed bottom-20 right-4 z-20 h-14 w-14 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center active:scale-95"
+                    title="Create New Group"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
+                    </svg>
+                </button>
             )}
 
             {contextMenu && (
