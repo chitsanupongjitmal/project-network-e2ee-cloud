@@ -4,6 +4,12 @@ import { SERVER_URL } from '../../config';
 
 const resolveAvatarUrl = (avatarUrl) => {
     if (!avatarUrl) return defaultAvatar;
+    if (
+        avatarUrl === '/uploads/default-avatar.png' ||
+        avatarUrl === '/uploads/default-avatar.svg'
+    ) {
+        return defaultAvatar;
+    }
     if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) return avatarUrl;
     if (avatarUrl.startsWith('/')) {
         return SERVER_URL ? `${SERVER_URL}${avatarUrl}` : avatarUrl;
