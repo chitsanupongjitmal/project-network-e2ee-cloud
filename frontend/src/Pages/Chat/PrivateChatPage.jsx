@@ -7,6 +7,7 @@ import ChatHeader from '../../Components/Chat/ChatHeader';
 import MessageList from '../../Components/Chat/MessageList';
 import MessageInput from '../../Components/Chat/MessageInput';
 import ImageModal from '../../Components/Modals/ImageModal';
+import { chatThemes } from '../../Data/themeData';
 
 
 
@@ -42,7 +43,9 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
         handleUnsendMessage,
         replyingToMessage,
         setReplyingToMessage,
-        isUploading
+        isUploading,
+        currentTheme,
+        handleThemeChange
     } = usePrivateChat(peerUsername, socket, currentUser, keyPair, peerKeyVersions);
 
 
@@ -109,6 +112,7 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
                 onDataChanged={fetchData}
                 isBlockingPeer={isBlockedByMe}
                 isBlocked={isBlockedByMe || hasBlockedMe}
+                onChangeTheme={handleThemeChange}
             />
 
             <MessageList 
@@ -119,6 +123,7 @@ const PrivateChatPage = ({ socket, currentUser, keyPair, peerKeyVersions, callUs
                 onImageClick={(src) => setViewingImage(src)}
                 onUnsendMessage={handleUnsendMessage}
                 onSetReply={setReplyingToMessage}
+                backgroundStyle={chatThemes[currentTheme]?.style || chatThemes.default.style}
             />
             
             <div className="w-full bg-white p-2 border-t">
