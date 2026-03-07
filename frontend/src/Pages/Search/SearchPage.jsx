@@ -77,7 +77,7 @@ export default function SearchPage({ themeMode = 'light' }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by username (e.g. johndoe)"
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 caret-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             autoFocus
           />
         </div>
