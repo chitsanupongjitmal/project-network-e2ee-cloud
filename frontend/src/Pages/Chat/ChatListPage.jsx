@@ -25,7 +25,7 @@ const ContextMenu = ({ x, y, convo, onClose, onHideChat }) => {
 };
 
 const MANAGER_ROLES = new Set(['group-admin', 'super-admin']);
-const canManageGroups = (user) => !!user && MANAGER_ROLES.has(user.role);
+const canManageGroups = (user) => !!user && (MANAGER_ROLES.has(user.role) || !!user.can_create_group);
 
 const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, currentUser }) => {
     const [rawConversations, setRawConversations] = useState([]);
@@ -198,7 +198,7 @@ const ChatListPage = ({ socket, keyPair, decryptedGroupKeys, onKeyDecrypted, cur
                     </button>
                 </div>
                 {!manageGroups && (
-                    <p className="text-xs text-gray-500 mt-2">Only group administrators can create new group chats.</p>
+                    <p className="text-xs text-gray-500 mt-2">Only users with group-creation permission can create new group chats.</p>
                 )}
                 <input
                     type="text"
