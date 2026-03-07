@@ -1,133 +1,116 @@
-# Deployment Guide (Vercel + EC2 + MariaDB RDS)
+# Deployment Guide (Latest)
+
+This document is the latest deploy flow for this repo (Vercel + EC2 + RDS).
 
 ## 1) Backend on EC2
 
-1. Open EC2 security group inbound:
-- `22` from your IP
-- `80` from `0.0.0.0/0`
-- `443` from `0.0.0.0/0`
-- `4001` only from localhost/internal (if using Nginx reverse proxy)
-
-2. Install Node.js 20+ on EC2 and clone project.
-
-3. Backend setup:
 ```bash
-cd backend
+cd /var/www
+git clone https://github.com/chitsanupongjitmal/project-network-e2ee-cloud.git
+cd project-network-e2ee-cloud/backend
 cp .env.example .env
-# edit .env
 npm install
-npm run start
 ```
 
-4. Run DB migration for account approval and group-create permission:
-```bash
-mysql -h <RDS_HOST> -P 3306 -u <DB_USER> -p --ssl-mode=REQUIRED < /var/www/project-network-e2ee-cloud/deploy/sql/20260307_add_user_approval_and_group_permission.sql
-```
-
-5. Run DB migration for post image support:
-```bash
-mysql -h <RDS_HOST> -P 3306 -u <DB_USER> -p --ssl-mode=REQUIRED < /var/www/project-network-e2ee-cloud/deploy/sql/20260307_add_post_image.sql
-```
-
-6. In `backend/.env` set at least:
+Required `.env` (backend):
 - `NODE_ENV=production`
 - `PORT=4001`
 - `ENABLE_HTTPS=false`
-- `CORS_ORIGIN=https://project-network-e2ee-cloud.vercel.app`
-- `DB_HOST=pj-cloud.cfkywcoom7ye.ap-southeast-7.rds.amazonaws.com`, `DB_PORT=3306`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-- `DB_SSL=true` (RDS with `require_secure_transport=ON`)
-- `JWT_SECRET`
+- `JWT_SECRET=...`
+- `CORS_ORIGIN=https://project-network-e2ee-cloud.vercel.app,https://project-network-e2ee-cloud-git-main-beam3.vercel.app`
+- `DB_HOST=<rds-endpoint>`
+- `DB_PORT=3306`
+- `DB_USER=<db-user>`
+- `DB_PASSWORD=<db-password>`
+- `DB_NAME=pj_network`
+- `DB_SSL=true`
+- `DB_SSL_REJECT_UNAUTHORIZED=false`
 - `SOCKET_IO_PATH=/api/ws`
 
-7. Use PM2 (recommended):
+Run with PM2:
 ```bash
-npm i -g pm2
-pm2 start ecosystem.config.cjs
+cd /var/www/project-network-e2ee-cloud/backend
+pm2 start ecosystem.config.cjs --name project-network-api
 pm2 save
 pm2 startup
 ```
 
-## 2) Nginx on EC2 (TLS + reverse proxy)
+Health check:
+```bash
+curl -i http://127.0.0.1:4001/health
+```
 
-Use Nginx to terminate SSL and forward to Node at `http://127.0.0.1:4001`.
+## 2) Nginx Reverse Proxy (EC2)
 
-Use this file from repo as template:
+Install config from repo template:
 - `deploy/nginx/api.yourdomain.com.conf`
 
-Then install:
+If using IP directly (no domain), keep proxy pass to `http://127.0.0.1:4001`.
+
+After edit:
 ```bash
-sudo cp deploy/nginx/api.yourdomain.com.conf /etc/nginx/sites-available/api.yourdomain.com.conf
-sudo ln -s /etc/nginx/sites-available/api.yourdomain.com.conf /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-Reference config:
-```nginx
-server {
-  listen 80;
-  server_name api.yourdomain.com;
-  return 301 https://$host$request_uri;
-}
-
-server {
-  listen 443 ssl;
-  server_name api.yourdomain.com;
-
-  ssl_certificate /etc/letsencrypt/live/api.yourdomain.com/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
-
-  location / {
-    proxy_pass http://127.0.0.1:4001;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-}
+Check:
+```bash
+curl -i http://127.0.0.1/health
+curl -i http://<EC2_PUBLIC_IP>/health
 ```
 
-## 3) MariaDB RDS
+## 3) RDS MariaDB
 
-1. Create RDS MariaDB instance.
-2. In RDS security group inbound, allow `3306` from EC2 security group.
-3. Import schema from `SQL_PJNETWORK.sql`.
-4. Put RDS endpoint credentials into `backend/.env`.
+Create DB `pj_network` and import base schema:
+```bash
+mysql -h <rds-endpoint> -P 3306 -u <db-user> -p --ssl-mode=REQUIRED pj_network < /var/www/project-network-e2ee-cloud/SQL_PJNETWORK.sql
+```
+
+Run incremental migrations (latest):
+```bash
+mysql -h <rds-endpoint> -P 3306 -u <db-user> -p --ssl-mode=REQUIRED pj_network < /var/www/project-network-e2ee-cloud/deploy/sql/20260307_add_user_approval_and_group_permission.sql
+mysql -h <rds-endpoint> -P 3306 -u <db-user> -p --ssl-mode=REQUIRED pj_network < /var/www/project-network-e2ee-cloud/deploy/sql/20260307_add_post_image.sql
+mysql -h <rds-endpoint> -P 3306 -u <db-user> -p --ssl-mode=REQUIRED pj_network < /var/www/project-network-e2ee-cloud/deploy/sql/20260307_add_group_avatar.sql
+mysql -h <rds-endpoint> -P 3306 -u <db-user> -p --ssl-mode=REQUIRED pj_network < /var/www/project-network-e2ee-cloud/deploy/sql/20260307_add_call_history.sql
+```
 
 ## 4) Frontend on Vercel
 
-1. Import `frontend` folder as Vercel project.
-2. Framework preset: `Vite`.
-3. Build command: `npm run build`
-4. Output directory: `dist`
-5. Add env var in Vercel:
-- `VITE_SERVER_URL=` (leave empty when using `frontend/vercel.json` rewrites)
-- `VITE_SOCKET_URL=` (recommended: set to `wss://api.yourdomain.com` for real websocket)
-- `VITE_SOCKET_PATH=/api/ws`
+Project root: `frontend/`
 
-Also keep rewrite for static uploads:
+Env vars:
+- `VITE_SERVER_URL=` (empty when using rewrite mode)
+- `VITE_SOCKET_URL=` (empty for rewrite mode, or set `wss://api.yourdomain.com`)
+- `VITE_SOCKET_PATH=/api/ws`
+- `VITE_ICE_SERVERS=<json array>`
+
+`frontend/vercel.json` should include rewrites for:
+- `/api/:path* -> http://<EC2_PUBLIC_IP>/api/:path*`
+- `/api/ws/:path* -> http://<EC2_PUBLIC_IP>/api/ws/:path*`
 - `/uploads/:path* -> http://<EC2_PUBLIC_IP>/uploads/:path*`
 
-6. Redeploy.
+Then redeploy production.
 
-### WebSocket modes
+## 5) Update Flow (after new commit)
 
-1. Rewrite mode (quick setup):
-- `VITE_SERVER_URL=` empty
-- `VITE_SOCKET_URL=` empty
-- Works via Vercel rewrites, but Socket.IO may fallback to polling.
+On EC2:
+```bash
+cd /var/www/project-network-e2ee-cloud
+git pull origin main
+cd backend
+pm2 restart project-network-api --update-env
+sleep 2
+curl -i http://127.0.0.1:4001/health
+```
 
-2. Dedicated socket domain (recommended):
-- `VITE_SERVER_URL=https://api.yourdomain.com`
-- `VITE_SOCKET_URL=wss://api.yourdomain.com`
-- Better realtime stability and lower latency.
+On Vercel:
+- Redeploy production
+- Hard refresh browser
 
-## 5) Quick verification
+## 6) Quick Troubleshooting
 
-1. Open `https://api.yourdomain.com/health` and expect `{"status":"ok"}`.
-2. Open Vercel app, login/register should hit `https://api.yourdomain.com/api/...`
-3. Browser console should not show CORS errors.
-4. Socket should connect successfully.
-5. EC2 logs (`pm2 logs`) should show traffic and no certificate read errors.
+- `502 Bad Gateway`: Nginx upstream port wrong (`3000` vs `4001`)
+- `ER_SECURE_TRANSPORT_REQUIRED`: set `DB_SSL=true`
+- `Unknown database`: set `DB_NAME=pj_network`
+- Socket polling returns HTML: rewrite/path mismatch (`/api/ws`)
+- Login 401: wrong username/password (username, not display name)
