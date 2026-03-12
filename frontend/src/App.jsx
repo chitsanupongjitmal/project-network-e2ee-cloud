@@ -100,26 +100,45 @@ const App = () => {
 
     useEffect(() => {
         const checkSession = async () => {
-            if (token) {
-                try {
-                    const response = await fetch(`${SERVER_URL}/api/check-session`, { headers: { 'Authorization': `Bearer ${token}` } });
-                    if (response.ok) {
-                        const data = await response.json();
-                        const keys = await getKeys();
-                        const storedGroupKeys = await getAllGroupKeys();
-                        if (keys) {
-                            handleLoginSuccess(token, data.user);
-                            setKeyPair(keys);
-                            setDecryptedGroupKeys(storedGroupKeys);
-                        } else {
-                            await handleLogout(false);
-                        }
+            if (!token) {
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                const decoded = jwtDecode(token);
+                const isExpired = decoded?.exp && decoded.exp * 1000 <= Date.now();
+                if (isExpired) {
+                    await handleLogout(false);
+                    setIsLoading(false);
+                    return;
+                }
+            } catch (error) {
+                await handleLogout(false);
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${SERVER_URL}/api/check-session`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const keys = await getKeys();
+                    const storedGroupKeys = await getAllGroupKeys();
+                    if (keys) {
+                        handleLoginSuccess(token, data.user);
+                        setKeyPair(keys);
+                        setDecryptedGroupKeys(storedGroupKeys);
                     } else {
                         await handleLogout(false);
                     }
-                } catch (error) {
+                } else {
                     await handleLogout(false);
                 }
+            } catch (error) {
+                await handleLogout(false);
             }
             setIsLoading(false);
         };
